@@ -1,0 +1,2249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CCSICT SafeTrack — Anonymous Reporting &amp; Support Portal</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================
+   00 · TOKENS  —  #27005D / #9400FF / #AED2FF / #E4F1FF
+============================================================ */
+:root{
+  --void:#12002e;              /* deepest (derived from #27005D) */
+  --void-2:#1a0042;
+  --void-3:#27005D;            /* given deep purple */
+
+  --glass:rgba(174,210,255,.05);
+  --glass-2:rgba(174,210,255,.10);
+
+  --stroke:rgba(174,210,255,.16);
+  --stroke-2:rgba(174,210,255,.30);
+
+  --ink:#E4F1FF;
+  --ink-2:#AED2FF;
+  --ink-3:rgba(174,210,255,.62);
+
+  --violet:#9400FF;
+  --violet-soft:#b54dff;
+  --violet-soft-2:#d4a3ff;
+  --violet-deep:#27005D;
+  --blue:#AED2FF;
+  --ice:#E4F1FF;
+
+  --amber:#b54dff;
+  --rose:#ff5c9d;
+  --mint:#AED2FF;
+  --lime:#E4F1FF;
+  --cyan:#AED2FF;
+  --pink:#b54dff;
+
+  --r-xl:34px;
+  --r-lg:24px;
+  --r-md:16px;
+  --r-sm:11px;
+
+  --font-display:"Syne", system-ui, sans-serif;
+  --font-ui:"Space Grotesk", system-ui, -apple-system, sans-serif;
+  --font-mono:"JetBrains Mono", ui-monospace, monospace;
+
+  --ease:cubic-bezier(.2,.9,.3,1.15);
+}
+
+/* ============================================================
+   01 · RESET
+============================================================ */
+*,*::before,*::after{ box-sizing:border-box; }
+html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; }
+body{
+  margin:0;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  font-family:var(--font-ui);
+  font-size:15px;
+  line-height:1.5;
+  color:var(--ink);
+  background:var(--void);
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+button{ font-family:inherit; }
+img,svg{ display:block; max-width:100%; }
+.hidden{ display:none !important; }
+
+/* ============================================================
+   02 · LIVING BACKGROUND
+============================================================ */
+body::before{
+  content:"";
+  position:fixed; inset:-25%; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(38% 34% at 12% 10%, rgba(148,0,255,.55),  transparent 62%),
+    radial-gradient(34% 30% at 88% 4%,  rgba(174,210,255,.28), transparent 62%),
+    radial-gradient(42% 38% at 78% 90%, rgba(148,0,255,.42),  transparent 64%),
+    radial-gradient(36% 34% at 16% 94%, rgba(228,241,255,.14), transparent 62%);
+  filter:blur(64px) saturate(145%);
+  animation:aurora 30s ease-in-out infinite alternate;
+}
+@keyframes aurora{
+  0%   { transform:translate3d(0,0,0) scale(1); }
+  50%  { transform:translate3d(-3%,2%,0) scale(1.08); }
+  100% { transform:translate3d(3%,-3%,0) scale(1.04); }
+}
+body::after{
+  content:"";
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  opacity:.05; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.proto-bar, .topbar, .shell, .modal, .toast{ position:relative; z-index:1; }
+
+/* ============================================================
+   03 · TYPE
+============================================================ */
+h1,h2,h3,h4{ margin:0; font-family:var(--font-display); font-weight:700; letter-spacing:-.02em; }
+p{ margin:0; }
+.eyebrow{
+  display:block;
+  font-size:10px; font-weight:700;
+  letter-spacing:.22em; text-transform:uppercase;
+  color:var(--ink-3);
+}
+.grad-text{
+  background:linear-gradient(100deg, #E4F1FF, #AED2FF 35%, #9400FF 75%, #b54dff);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.mono{ font-family:var(--font-mono); }
+
+/* ============================================================
+   04 · PILLS / BADGES
+============================================================ */
+.pill{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:4px 11px; border-radius:999px;
+  font-size:10.5px; font-weight:700; letter-spacing:.06em;
+  text-transform:uppercase; white-space:nowrap;
+  border:1px solid transparent;
+}
+.pill-violet{ color:#E4F1FF; background:rgba(148,0,255,.22); border-color:rgba(148,0,255,.5); }
+.pill-cyan  { color:#12002e; background:#AED2FF; }
+.pill-pink  { color:#fff;    background:#9400FF; }
+.pill-lime  { color:#12002e; background:#E4F1FF; }
+.pill-glass { color:#AED2FF; background:rgba(174,210,255,.08); border-color:rgba(174,210,255,.18); }
+
+.badge{
+  display:inline-flex; align-items:center;
+  padding:4px 12px; border-radius:999px;
+  font-size:11px; font-weight:700; letter-spacing:.04em;
+  border:1px solid transparent; white-space:nowrap;
+}
+.badge-mute  { color:#AED2FF; background:rgba(174,210,255,.10); border-color:rgba(174,210,255,.22); }
+.badge-amber { color:#fff;    background:#9400FF; }
+.badge-mint  { color:#12002e; background:#AED2FF; }
+
+/* ============================================================
+   05 · BUTTONS
+============================================================ */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  border:1px solid transparent; border-radius:999px;
+  padding:12px 24px;
+  font-family:var(--font-ui);
+  font-size:13.5px; font-weight:600; letter-spacing:.005em;
+  cursor:pointer; text-decoration:none;
+  transition:transform .18s var(--ease), box-shadow .22s ease, background .22s ease, border-color .22s ease, color .22s ease;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn:hover{ transform:translateY(-2px); }
+.btn:active{ transform:translateY(0) scale(.98); }
+.btn:focus-visible{ outline:2px solid #AED2FF; outline-offset:3px; }
+
+.btn-primary{
+  background:linear-gradient(135deg, #9400FF, #AED2FF);
+  color:#fff;
+  box-shadow:0 14px 34px -12px rgba(148,0,255,.85), inset 0 1px 0 rgba(255,255,255,.28);
+}
+.btn-primary:hover{
+  box-shadow:0 20px 46px -14px rgba(148,0,255,1), inset 0 1px 0 rgba(255,255,255,.32);
+}
+
+.btn-lime{
+  background:#E4F1FF; color:#12002e;
+  box-shadow:0 14px 34px -12px rgba(228,241,255,.55), inset 0 1px 0 rgba(255,255,255,.5);
+}
+.btn-lime:hover{ box-shadow:0 20px 46px -14px rgba(228,241,255,.75); }
+
+.btn-glass{
+  background:rgba(174,210,255,.07);
+  border-color:rgba(174,210,255,.18);
+  color:#E4F1FF;
+  backdrop-filter:blur(12px);
+}
+.btn-glass:hover{ background:rgba(174,210,255,.13); border-color:rgba(174,210,255,.32); }
+
+.btn-ghost{
+  background:transparent; border-color:rgba(174,210,255,.18);
+  color:#AED2FF;
+}
+.btn-ghost:hover{ color:#E4F1FF; border-color:rgba(174,210,255,.32); background:rgba(174,210,255,.05); }
+
+.btn-xs{ padding:7px 14px; font-size:11.5px; }
+.btn-block{ width:100%; }
+
+/* ============================================================
+   06 · FORM CONTROLS
+============================================================ */
+.sel, .input, textarea{
+  width:100%;
+  font-family:var(--font-ui);
+  font-size:14px;
+  color:var(--ink);
+  background:rgba(174,210,255,.05);
+  border:1px solid var(--stroke);
+  border-radius:var(--r-sm);
+  padding:12px 14px;
+  transition:border-color .2s, box-shadow .2s, background .2s;
+  appearance:none;
+}
+.sel{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23AED2FF' stroke-width='1.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 14px center;
+  padding-right:38px;
+  cursor:pointer;
+}
+.sel option, .sel optgroup{ background:#1a0042; color:var(--ink); }
+.sel-sm{ padding:5px 28px 5px 10px; font-size:11.5px; border-radius:999px; background-position:right 10px center; }
+
+.input:focus, .sel:focus, textarea:focus{
+  outline:none;
+  border-color:#AED2FF;
+  background:rgba(174,210,255,.07);
+  box-shadow:0 0 0 3px rgba(174,210,255,.15);
+}
+.input::placeholder, textarea::placeholder{ color:var(--ink-3); }
+textarea{ resize:vertical; line-height:1.65; }
+input[type="radio"], input[type="checkbox"]{ accent-color:#9400FF; }
+
+.file-input{
+  display:block; width:100%;
+  font-size:12px; color:var(--ink-2);
+  background:rgba(174,210,255,.04);
+  border:1px dashed var(--stroke-2);
+  border-radius:var(--r-sm);
+  padding:10px;
+  cursor:pointer;
+  transition:border-color .2s, background .2s;
+}
+.file-input:hover{ border-color:#AED2FF; background:rgba(174,210,255,.06); }
+.file-input::file-selector-button{
+  font-family:var(--font-ui);
+  font-size:11.5px; font-weight:700;
+  margin-right:12px;
+  padding:8px 14px;
+  border:none; border-radius:999px;
+  background:linear-gradient(120deg, #9400FF, #b54dff);
+  color:#fff; cursor:pointer;
+  transition:filter .2s;
+}
+.file-input::file-selector-button:hover{ filter:brightness(1.15); }
+
+/* Switch */
+.switch{ display:inline-flex; align-items:center; gap:9px; cursor:pointer; user-select:none; }
+.switch input{ position:absolute; opacity:0; width:0; height:0; }
+.switch-track{
+  position:relative; width:36px; height:20px; border-radius:999px;
+  background:rgba(174,210,255,.12);
+  border:1px solid var(--stroke);
+  transition:background .22s, border-color .22s;
+  flex:none;
+}
+.switch-dot{
+  position:absolute; top:2px; left:2px; width:14px; height:14px;
+  border-radius:50%; background:#AED2FF;
+  transition:transform .24s var(--ease), background .22s;
+}
+.switch input:checked + .switch-track{
+  background:linear-gradient(90deg, #9400FF, #b54dff);
+  border-color:transparent;
+}
+.switch input:checked + .switch-track .switch-dot{ transform:translateX(16px); background:#fff; }
+.switch input:focus-visible + .switch-track{ outline:2px solid #AED2FF; outline-offset:2px; }
+.switch-label{ font-size:11px; font-weight:500; color:var(--ink-2); letter-spacing:.03em; }
+
+/* ============================================================
+   07 · PROTOTYPE CONTROL BAR
+============================================================ */
+.proto-bar{
+  background:rgba(18,0,46,.75);
+  backdrop-filter:blur(16px) saturate(140%);
+  border-bottom:1px solid var(--stroke);
+  z-index:60;
+}
+.proto-inner{
+  max-width:1260px; margin:0 auto;
+  padding:9px 18px;
+  display:flex; flex-wrap:wrap; gap:14px;
+  align-items:center; justify-content:space-between;
+  font-size:11px;
+}
+.proto-left, .proto-right{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+.proto-title{
+  font-size:9.5px; font-weight:700; letter-spacing:.22em;
+  text-transform:uppercase; color:rgba(174,210,255,.55);
+}
+.proto-field{ display:flex; align-items:center; gap:8px; }
+.proto-field > span{ color:rgba(174,210,255,.55); font-weight:500; }
+
+/* ============================================================
+   08 · TOP BAR
+============================================================ */
+.topbar{
+  position:sticky; top:0; z-index:50;
+  background:rgba(18,0,46,.65);
+  backdrop-filter:blur(22px) saturate(160%);
+  border-bottom:1px solid var(--stroke);
+}
+.topbar-inner{
+  max-width:1260px; margin:0 auto;
+  padding:0 18px;
+  height:70px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px;
+}
+.brand{
+  display:flex; align-items:center; gap:12px;
+  background:none; border:none; padding:0; cursor:pointer;
+  color:inherit; text-align:left;
+}
+.brand-mark{
+  width:40px; height:40px; flex:none;
+  display:grid; place-items:center;
+  border-radius:13px;
+  background:linear-gradient(135deg, #9400FF, #b54dff 60%, #AED2FF);
+  color:#fff; font-family:var(--font-display); font-weight:800; font-size:14px;
+  letter-spacing:.02em;
+  box-shadow:0 10px 26px -10px rgba(148,0,255,.95), inset 0 1px 0 rgba(255,255,255,.4);
+  transition:transform .28s var(--ease);
+}
+.brand:hover .brand-mark{ transform:rotate(-8deg) scale(1.06); }
+.brand-name{
+  display:block;
+  font-family:var(--font-display);
+  font-size:16px; font-weight:800; letter-spacing:-.02em;
+  color:var(--ink);
+  line-height:1.15;
+}
+.brand-sub{
+  display:block;
+  font-size:10.5px; font-weight:500; letter-spacing:.05em;
+  color:var(--ink-3);
+  margin-top:2px;
+}
+
+.nav{ display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+.nav-tab{
+  position:relative;
+  padding:8px 16px;
+  border:none; border-radius:999px;
+  background:transparent;
+  color:var(--ink-2);
+  font-family:var(--font-ui);
+  font-size:12.5px; font-weight:600; letter-spacing:.01em;
+  cursor:pointer;
+  transition:color .2s, background .2s;
+}
+.nav-tab:hover{ color:#E4F1FF; background:rgba(174,210,255,.08); }
+.nav-tab.is-active{
+  color:#12002e;
+  background:#E4F1FF;
+  box-shadow:0 8px 22px -10px rgba(228,241,255,.75);
+}
+
+/* ============================================================
+   09 · SHELL
+============================================================ */
+.shell{
+  flex:1;
+  width:100%;
+  max-width:1260px;
+  margin:0 auto;
+  padding:26px 18px 60px;
+  display:flex; flex-direction:column; gap:22px;
+}
+.stack{ display:flex; flex-direction:column; gap:22px; }
+.stack-sm{ display:flex; flex-direction:column; gap:14px; }
+.grid-3{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.grid-2{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.grid-4{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.row-2{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.narrow{ max-width:840px; width:100%; margin:0 auto; }
+.center-narrow{ max-width:600px; width:100%; margin:0 auto; }
+
+/* ============================================================
+   10 · CARDS
+============================================================ */
+.card{
+  position:relative;
+  background:linear-gradient(160deg, rgba(174,210,255,.07), rgba(174,210,255,.02));
+  border:1px solid var(--stroke);
+  border-radius:var(--r-lg);
+  padding:24px;
+  backdrop-filter:blur(18px) saturate(130%);
+  box-shadow:
+    inset 0 1px 0 rgba(174,210,255,.10),
+    0 26px 60px -34px rgba(0,0,0,.95);
+  transition:border-color .25s, transform .25s var(--ease), box-shadow .25s;
+}
+.card:hover{ border-color:rgba(174,210,255,.24); }
+.lift:hover{ transform:translateY(-5px); box-shadow:inset 0 1px 0 rgba(174,210,255,.14), 0 38px 80px -34px rgba(148,0,255,.5); }
+
+.card-head{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:14px; flex-wrap:wrap;
+  padding-bottom:16px;
+  border-bottom:1px solid var(--stroke);
+  margin-bottom:20px;
+}
+.card-title{ font-size:19px; font-weight:700; letter-spacing:-.02em; color:var(--ink); }
+.card-sub{ font-size:12px; color:var(--ink-3); margin-top:4px; line-height:1.55; }
+
+/* ============================================================
+   11 · HERO
+============================================================ */
+.hero{
+  position:relative;
+  border-radius:var(--r-xl);
+  padding:46px 40px 0;
+  overflow:hidden;
+  border:1px solid rgba(174,210,255,.18);
+  background:
+    radial-gradient(120% 140% at 0% 0%,    rgba(148,0,255,.60),  transparent 56%),
+    radial-gradient(110% 130% at 100% 100%, rgba(174,210,255,.30), transparent 58%),
+    linear-gradient(158deg, #27005D 0%, #12002e 62%, #1a0042 100%);
+  box-shadow:
+    0 44px 100px -46px rgba(148,0,255,.85),
+    inset 0 1px 0 rgba(174,210,255,.18);
+}
+.hero::before{
+  content:"";
+  position:absolute; top:-160px; right:-120px;
+  width:420px; height:420px; border-radius:50%;
+  background:radial-gradient(circle, rgba(174,210,255,.45), transparent 68%);
+  filter:blur(50px);
+  pointer-events:none;
+  animation:orb 14s ease-in-out infinite alternate;
+}
+@keyframes orb{
+  0%{ transform:translate(0,0) scale(1); }
+  100%{ transform:translate(-60px,50px) scale(1.25); }
+}
+.hero-inner{ position:relative; max-width:660px; display:flex; flex-direction:column; gap:18px; }
+.hero-title{
+  font-family:var(--font-display);
+  font-size:clamp(28px, 4.4vw, 50px);
+  font-weight:800;
+  line-height:1.03;
+  letter-spacing:-.035em;
+  color:#fff;
+}
+.hero-lede{
+  font-size:13.5px; line-height:1.7; color:rgba(228,241,255,.78);
+  max-width:540px;
+}
+.hero-actions{ display:flex; flex-wrap:wrap; gap:11px; padding-top:6px; }
+
+.ticker{
+  position:relative;
+  margin:38px -40px 0;
+  padding:12px 0;
+  border-top:1px solid rgba(174,210,255,.14);
+  overflow:hidden;
+  -webkit-mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.ticker-track{
+  display:flex; align-items:center; gap:26px;
+  white-space:nowrap; width:max-content;
+  font-family:var(--font-mono);
+  font-size:10.5px; font-weight:600;
+  letter-spacing:.24em; text-transform:uppercase;
+  color:rgba(228,241,255,.85);
+  animation:marquee 26s linear infinite;
+}
+.ticker-track span:nth-child(even){ color:rgba(174,210,255,.30); }
+@keyframes marquee{ to{ transform:translateX(-50%); } }
+
+/* ============================================================
+   12 · PRIVACY PROMISE
+============================================================ */
+.promise{ display:flex; flex-direction:column; gap:10px; padding:22px; }
+.promise-num{
+  width:38px; height:38px; flex:none;
+  display:grid; place-items:center;
+  border-radius:12px;
+  font-family:var(--font-display); font-size:15px; font-weight:800;
+}
+.promise:nth-child(1) .promise-num{ background:#E4F1FF; color:#12002e; box-shadow:0 10px 24px -12px rgba(228,241,255,.7); }
+.promise:nth-child(2) .promise-num{ background:#AED2FF; color:#12002e; box-shadow:0 10px 24px -12px rgba(174,210,255,.75); }
+.promise:nth-child(3) .promise-num{ background:#9400FF; color:#fff;    box-shadow:0 10px 24px -12px rgba(148,0,255,.9);  }
+.promise h3{ font-size:14.5px; font-weight:700; letter-spacing:-.01em; }
+.promise p{ font-size:12px; line-height:1.7; color:var(--ink-2); }
+
+/* ============================================================
+   13 · LOOKUP
+============================================================ */
+.lookup-row{ display:flex; gap:10px; }
+.lookup-row .input{ flex:1; font-family:var(--font-mono); letter-spacing:.14em; text-transform:uppercase; font-size:13px; }
+.hint{ font-size:11px; color:var(--ink-3); line-height:1.6; }
+
+/* ============================================================
+   14 · FORM SECTIONS
+============================================================ */
+.field{ display:flex; flex-direction:column; gap:8px; }
+.field-label{
+  font-size:10.5px; font-weight:700;
+  letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink-2);
+}
+.req{ color:#ff5c9d; }
+.field-note{ font-size:11px; color:var(--ink-3); line-height:1.6; }
+
+.pick-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px; }
+.pick{
+  display:flex; flex-direction:column; gap:3px;
+  padding:15px 14px;
+  border:1px solid var(--stroke);
+  border-radius:var(--r-md);
+  background:rgba(174,210,255,.03);
+  cursor:pointer;
+  transition:border-color .2s, background .2s, box-shadow .2s, transform .2s var(--ease);
+}
+.pick:hover{ transform:translateY(-2px); border-color:rgba(174,210,255,.5); background:rgba(174,210,255,.06); }
+.pick:has(input:checked){
+  border-color:#AED2FF;
+  background:rgba(174,210,255,.10);
+  box-shadow:0 0 0 3px rgba(174,210,255,.13);
+}
+.pick input{ margin:0 0 6px; }
+.pick strong{ font-size:12.5px; font-weight:600; color:var(--ink); }
+.pick small{ font-size:11px; color:var(--ink-3); line-height:1.45; }
+
+.note-box{
+  background:rgba(174,210,255,.04);
+  border:1px solid var(--stroke);
+  border-radius:var(--r-md);
+  padding:14px 16px;
+  font-size:11.5px;
+  line-height:1.7;
+  color:var(--ink-2);
+}
+.note-box code, .code-chip{
+  font-family:var(--font-mono);
+  font-weight:600;
+  color:#E4F1FF;
+  background:rgba(228,241,255,.10);
+  padding:1px 7px;
+  border-radius:6px;
+  font-size:11px;
+}
+
+.strip-ok{
+  margin-top:12px;
+  padding:13px 15px;
+  border-radius:var(--r-md);
+  background:rgba(174,210,255,.08);
+  border:1px solid rgba(174,210,255,.32);
+  font-size:11.5px;
+  line-height:1.65;
+  color:#D6E7FF;
+}
+.strip-ok strong{ color:#E4F1FF; }
+
+/* ============================================================
+   15 · CASE RECEIPT
+============================================================ */
+.case-head-top{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:16px; flex-wrap:wrap;
+  padding-bottom:18px;
+  border-bottom:1px solid var(--stroke);
+}
+.ticket-code{
+  display:block;
+  font-family:var(--font-mono);
+  font-size:clamp(22px, 3.2vw, 30px);
+  font-weight:600;
+  letter-spacing:.10em;
+  margin-top:5px;
+  background:linear-gradient(100deg, #E4F1FF, #AED2FF, #9400FF);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+.ticket-date{ display:block; font-size:11px; color:var(--ink-3); margin-top:6px; letter-spacing:.04em; }
+
+.timeline{ display:flex; align-items:center; padding:22px 0 4px; }
+.tl-step{ display:flex; flex-direction:column; align-items:center; gap:7px; min-width:70px; }
+.tl-dot{
+  width:30px; height:30px; border-radius:50%;
+  display:grid; place-items:center;
+  font-size:11px; font-weight:700;
+  background:rgba(174,210,255,.06);
+  border:1px solid rgba(174,210,255,.18);
+  color:rgba(174,210,255,.55);
+  transition:all .3s var(--ease);
+}
+.tl-step.done .tl-dot{
+  background:linear-gradient(135deg, #9400FF, #b54dff);
+  border-color:transparent; color:#fff;
+  box-shadow:0 0 22px rgba(148,0,255,.75);
+}
+.tl-label{ font-size:10.5px; font-weight:600; letter-spacing:.05em; color:var(--ink-3); }
+.tl-step.done .tl-label{ color:var(--ink); }
+.tl-line{ flex:1; height:2px; margin:0 8px; border-radius:2px; background:rgba(174,210,255,.12); }
+
+.detail-grid{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+.detail-item span:first-child{
+  display:block; font-size:10px; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--ink-3);
+  margin-bottom:4px;
+}
+.detail-item span:last-child{ font-size:12.5px; font-weight:500; color:var(--ink); }
+
+.narrative{
+  font-size:12.5px; line-height:1.75; color:var(--ink-2);
+  background:rgba(174,210,255,.04);
+  border:1px solid rgba(174,210,255,.14);
+  border-radius:var(--r-md);
+  padding:15px 16px;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+/* ============================================================
+   16 · CHAT
+============================================================ */
+.chat-scroll{ display:flex; flex-direction:column; gap:9px; max-height:340px; overflow-y:auto; padding-right:6px; }
+.msg{ display:flex; }
+.msg-gad{ justify-content:flex-start; }
+.msg-me{ justify-content:flex-end; }
+.bubble{
+  max-width:82%;
+  display:flex; flex-direction:column; gap:3px;
+  padding:10px 14px;
+  border-radius:17px;
+  font-size:12.5px; line-height:1.6;
+}
+.msg-gad .bubble{
+  background:rgba(174,210,255,.06);
+  border:1px solid rgba(174,210,255,.18);
+  border-bottom-left-radius:5px;
+  color:var(--ink);
+}
+.msg-me .bubble{
+  background:linear-gradient(135deg, #9400FF, #b54dff);
+  color:#fff;
+  border-bottom-right-radius:5px;
+  box-shadow:0 14px 32px -16px rgba(148,0,255,.9);
+}
+.msg-meta{
+  font-size:9.5px; font-weight:700;
+  letter-spacing:.10em; text-transform:uppercase;
+  opacity:.6;
+}
+.msg-text{ white-space:pre-wrap; word-break:break-word; }
+.chat-empty{ text-align:center; font-size:12px; color:rgba(174,210,255,.55); padding:26px 0; }
+.chat-bar{ display:flex; gap:9px; padding-top:4px; }
+
+/* ============================================================
+   17 · KPI
+============================================================ */
+.kpi{
+  position:relative;
+  padding:20px;
+  border-radius:var(--r-lg);
+  border:1px solid var(--stroke);
+  background:linear-gradient(160deg, rgba(174,210,255,.07), rgba(174,210,255,.02));
+  backdrop-filter:blur(16px);
+  box-shadow:inset 0 1px 0 rgba(174,210,255,.10);
+  overflow:hidden;
+  transition:transform .25s var(--ease), border-color .25s;
+}
+.kpi:hover{ transform:translateY(-4px); border-color:rgba(174,210,255,.26); }
+.kpi::after{
+  content:""; position:absolute; right:-40px; bottom:-40px;
+  width:110px; height:110px; border-radius:50%;
+  background:currentColor; opacity:.10; filter:blur(28px);
+}
+.kpi-label{
+  display:block;
+  font-size:9.5px; font-weight:700;
+  letter-spacing:.18em; text-transform:uppercase;
+  color:var(--ink-3);
+}
+.kpi-value{
+  display:block;
+  font-family:var(--font-display);
+  font-size:34px; font-weight:800;
+  line-height:1.05;
+  letter-spacing:-.03em;
+  margin-top:8px;
+  color:var(--ink);
+}
+.kpi-sub{ display:block; font-size:11px; color:var(--ink-3); margin-top:7px; line-height:1.45; }
+.kpi.tone-amber  { color:#b54dff; }
+.kpi.tone-mint   { color:#AED2FF; }
+.kpi.tone-violet { color:#9400FF; }
+.kpi.tone-lime   { color:#E4F1FF; }
+.kpi.tone-amber  .kpi-value{ color:#d4a3ff; }
+.kpi.tone-mint   .kpi-value{ color:#AED2FF; }
+.kpi.tone-violet .kpi-value{ color:#d4a3ff; }
+.kpi.tone-lime   .kpi-value{ color:#E4F1FF; }
+
+/* ============================================================
+   18 · BARS
+============================================================ */
+.bar-row{ display:flex; flex-direction:column; gap:7px; }
+.bar-head{ display:flex; align-items:baseline; justify-content:space-between; gap:14px; }
+.bar-name{ font-size:12px; font-weight:600; color:var(--ink); }
+.bar-val{ font-size:11px; color:var(--ink-3); white-space:nowrap; }
+.bar-track{ width:100%; height:7px; border-radius:999px; background:rgba(174,210,255,.08); overflow:hidden; }
+.bar-fill{
+  height:100%; border-radius:999px;
+  background:linear-gradient(90deg, #9400FF, #b54dff, #AED2FF);
+  background-size:200% 100%;
+  animation:shimmer 6s linear infinite;
+  transition:width .5s var(--ease);
+}
+@keyframes shimmer{ to{ background-position:200% 0; } }
+
+/* ============================================================
+   19 · TABLES
+============================================================ */
+.tbl-wrap{ overflow-x:auto; border-radius:var(--r-md); }
+.tbl{ width:100%; border-collapse:separate; border-spacing:0; font-size:12px; }
+.tbl thead th{
+  font-size:9.5px; font-weight:700;
+  letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink-3);
+  text-align:left;
+  padding:11px 13px;
+  border-bottom:1px solid var(--stroke);
+  white-space:nowrap;
+}
+.tbl tbody td{
+  padding:12px 13px;
+  border-bottom:1px solid rgba(174,210,255,.08);
+  color:var(--ink-2);
+  vertical-align:middle;
+}
+.tbl tbody tr:last-child td{ border-bottom:none; }
+.tbl tbody tr{ transition:background .18s; }
+.tbl tbody tr:hover td{ background:rgba(174,210,255,.04); }
+.tbl .td-id{ font-family:var(--font-mono); font-weight:600; color:#AED2FF; white-space:nowrap; }
+.tbl .td-nowrap{ white-space:nowrap; }
+.tbl .td-empty{ text-align:center; color:rgba(174,210,255,.55); padding:28px 0; font-size:12px; }
+.link-btn{
+  background:none; border:none; padding:0;
+  font-family:var(--font-ui);
+  font-size:11.5px; font-weight:700;
+  color:#AED2FF;
+  cursor:pointer;
+  text-decoration:underline; text-underline-offset:3px;
+  transition:color .18s;
+}
+.link-btn:hover{ color:#E4F1FF; }
+.sel-mini{
+  font-size:11px; padding:5px 26px 5px 9px;
+  border-radius:999px; background-position:right 9px center;
+}
+
+/* ============================================================
+   20 · KANBAN
+============================================================ */
+.kanban{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
+.kcol{
+  display:flex; flex-direction:column; gap:10px;
+  padding:13px;
+  min-height:160px;
+  border-radius:var(--r-md);
+  border:1px solid rgba(174,210,255,.14);
+  border-top:3px solid var(--ink-3);
+  background:rgba(174,210,255,.03);
+}
+.kcol.k-new{ border-top-color:#AED2FF; }
+.kcol.k-review{ border-top-color:#b54dff; }
+.kcol.k-done{ border-top-color:#E4F1FF; }
+.kcol-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.kcol-name{ font-size:11.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-2); }
+.kcol-count{
+  font-size:10px; font-weight:700;
+  padding:2px 9px; border-radius:999px;
+  background:rgba(174,210,255,.08);
+  border:1px solid rgba(174,210,255,.18);
+  color:rgba(174,210,255,.7);
+}
+.kcol-empty{ font-size:11px; color:rgba(174,210,255,.5); text-align:center; padding:18px 0; font-style:italic; }
+
+.kcard{
+  display:flex; flex-direction:column; gap:6px;
+  padding:12px;
+  border-radius:13px;
+  border:1px solid rgba(174,210,255,.15);
+  background:rgba(174,210,255,.06);
+  transition:transform .2s var(--ease), border-color .2s, background .2s;
+}
+.kcard:hover{ transform:translateY(-2px); border-color:rgba(174,210,255,.28); background:rgba(174,210,255,.10); }
+.kcard-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.kcard-id{
+  background:none; border:none; padding:0; cursor:pointer;
+  font-family:var(--font-mono); font-size:11.5px; font-weight:600;
+  color:#AED2FF;
+  transition:color .18s;
+}
+.kcard-id:hover{ color:#E4F1FF; }
+.kcard-date{ font-size:10px; color:var(--ink-3); white-space:nowrap; }
+.kcard-cat{ font-size:11.5px; font-weight:600; color:var(--ink); line-height:1.35; }
+.kcard-meta{ font-size:10px; color:var(--ink-3); letter-spacing:.03em; }
+.kcard-actions{ display:flex; flex-wrap:wrap; gap:5px; padding-top:4px; }
+.kbtn{
+  font-size:10px; font-weight:700;
+  padding:5px 10px; border-radius:999px;
+  border:1px solid rgba(174,210,255,.18);
+  background:rgba(174,210,255,.07);
+  color:#AED2FF;
+  cursor:pointer;
+  transition:all .18s;
+}
+.kbtn:hover{ background:rgba(174,210,255,.14); color:#E4F1FF; transform:translateY(-1px); }
+.kbtn-amber{ color:#fff; background:#9400FF; border-color:transparent; }
+.kbtn-amber:hover{ filter:brightness(1.1); color:#fff; }
+.kbtn-mint{ color:#12002e; background:#AED2FF; border-color:transparent; }
+.kbtn-mint:hover{ filter:brightness(1.1); color:#12002e; }
+
+/* ============================================================
+   21 · PRIVACY SHIELD
+============================================================ */
+.shield{
+  text-align:center;
+  padding:38px 26px;
+  border-radius:var(--r-lg);
+  border:1px solid rgba(148,0,255,.4);
+  background:
+    radial-gradient(90% 120% at 50% 0%, rgba(148,0,255,.28), transparent 62%),
+    rgba(18,0,46,.7);
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+}
+.shield-icon{
+  width:52px; height:52px; border-radius:16px;
+  display:grid; place-items:center;
+  font-size:22px;
+  background:linear-gradient(135deg, #9400FF, #b54dff);
+  box-shadow:0 16px 40px -16px rgba(148,0,255,.95);
+}
+.shield h3{ font-size:16px; color:#fff; }
+.shield p{ font-size:12px; line-height:1.75; color:var(--ink-2); max-width:460px; }
+
+/* ============================================================
+   22 · DENIED / EMPTY STATES
+============================================================ */
+.state{
+  text-align:center;
+  padding:44px 26px;
+  display:flex; flex-direction:column; align-items:center; gap:12px;
+}
+.state-icon{
+  width:52px; height:52px; border-radius:50%;
+  display:grid; place-items:center;
+  font-size:20px; font-weight:800;
+  background:rgba(255,92,157,.16);
+  border:1px solid rgba(255,92,157,.45);
+  color:#ff8dba;
+}
+.state h2{ font-size:19px; color:var(--ink); }
+.state p{ font-size:12.5px; line-height:1.7; color:var(--ink-2); max-width:420px; }
+
+/* ============================================================
+   23 · DEFENSE NOTES
+============================================================ */
+.defense-note{ display:none; }
+body.show-defense .defense-note{
+  display:block;
+  padding:18px 20px;
+  border-radius:var(--r-md);
+  border:1px solid rgba(174,210,255,.32);
+  background:rgba(174,210,255,.07);
+  font-size:11.5px;
+  line-height:1.75;
+  color:#D6E7FF;
+  animation:fadeUp .3s var(--ease);
+}
+.defense-note p:first-child{
+  font-size:9.5px; font-weight:800;
+  letter-spacing:.18em; text-transform:uppercase;
+  color:#AED2FF;
+  margin-bottom:7px;
+}
+.defense-note em{ color:#fff; font-style:italic; }
+.defense-note .mono{ color:#E4F1FF; }
+
+/* ============================================================
+   24 · POLICY ACCORDION
+============================================================ */
+.policy summary{
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  list-style:none; cursor:pointer;
+  font-size:13.5px; font-weight:600;
+  color:var(--ink);
+}
+.policy summary::-webkit-details-marker{ display:none; }
+.policy summary::after{
+  content:"";
+  width:9px; height:9px; flex:none;
+  border-right:2px solid var(--ink-3);
+  border-bottom:2px solid var(--ink-3);
+  transform:rotate(45deg);
+  transition:transform .25s var(--ease), border-color .2s;
+}
+.policy[open] summary::after{ transform:rotate(-135deg); border-color:#E4F1FF; }
+.policy-body{
+  padding-top:16px; margin-top:16px;
+  border-top:1px solid var(--stroke);
+  display:flex; flex-direction:column; gap:10px;
+  font-size:12px; line-height:1.75; color:var(--ink-2);
+}
+
+/* ============================================================
+   25 · MODAL
+============================================================ */
+.modal{
+  position:fixed; inset:0; z-index:110;
+  display:flex; align-items:center; justify-content:center;
+  padding:18px;
+  background:rgba(10,0,30,.72);
+  backdrop-filter:blur(10px);
+  animation:fadeIn .2s ease;
+}
+.modal-card{
+  width:100%; max-width:380px;
+  padding:28px 24px;
+  border-radius:26px;
+  border:1px solid rgba(174,210,255,.22);
+  background:linear-gradient(160deg, #27005D, #12002e);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,1), inset 0 1px 0 rgba(174,210,255,.14);
+  display:flex; flex-direction:column; gap:16px;
+  animation:popIn .28s var(--ease);
+}
+.modal-icon{
+  width:48px; height:48px; border-radius:15px; margin:0 auto;
+  display:grid; place-items:center; font-size:20px;
+  background:linear-gradient(135deg, #9400FF, #b54dff);
+  box-shadow:0 16px 40px -16px rgba(148,0,255,.9);
+}
+.modal-title{ font-size:17px; text-align:center; color:#fff; }
+.modal-sub{ font-size:12px; text-align:center; color:var(--ink-3); margin-top:5px; }
+.modal-error{ font-size:11.5px; color:#ff5c9d; text-align:center; }
+
+/* ============================================================
+   26 · TOAST
+============================================================ */
+.toast{
+  position:fixed; left:50%; bottom:26px;
+  transform:translateX(-50%);
+  z-index:130;
+  max-width:min(92vw, 460px);
+  padding:12px 20px;
+  border-radius:999px;
+  border:1px solid rgba(228,241,255,.35);
+  background:rgba(18,0,46,.95);
+  backdrop-filter:blur(16px);
+  color:var(--ink);
+  font-size:12px; font-weight:500; line-height:1.4;
+  text-align:center;
+  box-shadow:0 24px 60px -20px rgba(0,0,0,1), 0 0 0 4px rgba(228,241,255,.08);
+  animation:toastIn .3s var(--ease);
+}
+
+/* ============================================================
+   27 · VIEW TRANSITION
+============================================================ */
+.view{ animation:fadeUp .28s var(--ease); }
+@keyframes fadeUp{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+@keyframes fadeIn{ from{ opacity:0; } to{ opacity:1; } }
+@keyframes popIn{ from{ opacity:0; transform:translateY(14px) scale(.96); } to{ opacity:1; transform:none; } }
+@keyframes toastIn{ from{ opacity:0; transform:translate(-50%,16px); } to{ opacity:1; transform:translate(-50%,0); } }
+
+/* ============================================================
+   28 · SCROLLBARS
+============================================================ */
+.scroll-thin::-webkit-scrollbar{ width:7px; height:7px; }
+.scroll-thin::-webkit-scrollbar-track{ background:transparent; }
+.scroll-thin::-webkit-scrollbar-thumb{ background:rgba(174,210,255,.18); border-radius:999px; }
+.scroll-thin::-webkit-scrollbar-thumb:hover{ background:rgba(174,210,255,.5); }
+* { scrollbar-width:thin; scrollbar-color:rgba(174,210,255,.18) transparent; }
+
+/* ============================================================
+   29 · RESPONSIVE
+============================================================ */
+@media (max-width: 980px){
+  .grid-4{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .grid-3{ grid-template-columns:1fr; }
+  .detail-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .kanban{ grid-template-columns:1fr; }
+}
+@media (max-width: 720px){
+  .hero{ padding:32px 22px 0; border-radius:26px; }
+  .ticker{ margin:30px -22px 0; }
+  .topbar-inner{ height:auto; padding:12px 16px; flex-wrap:wrap; }
+  .nav{ width:100%; }
+  .nav-tab{ flex:1; text-align:center; padding:9px 10px; font-size:12px; }
+  .grid-2, .row-2, .pick-grid{ grid-template-columns:1fr; }
+  .shell{ padding:18px 14px 46px; }
+  .card{ padding:18px; border-radius:20px; }
+  .detail-grid{ grid-template-columns:1fr; }
+  .lookup-row, .chat-bar{ flex-direction:column; }
+  .kpi-value{ font-size:28px; }
+  .brand-sub{ display:none; }
+}
+@media (max-width: 460px){
+  .grid-4{ grid-template-columns:1fr; }
+  .proto-inner{ font-size:10.5px; }
+}
+
+/* ============================================================
+   30 · ACCESSIBILITY
+============================================================ */
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+  }
+  body::before{ animation:none; }
+}
+::selection{ background:rgba(228,241,255,.3); color:#12002e; }
+</style>
+</head>
+
+<body>
+
+<!-- PROTOTYPE CONTROL BAR -->
+<div class="proto-bar">
+  <div class="proto-inner">
+    <div class="proto-left">
+      <span class="proto-title">Prototype Controls</span>
+      <label class="proto-field">
+        <span>Role</span>
+        <select id="roleSelect" class="sel sel-sm" onchange="requestRoleSwitch(this.value)">
+          <option value="student">Student (Anonymous)</option>
+          <option value="gad">GAD Coordinator</option>
+          <option value="admin">College Admin</option>
+        </select>
+      </label>
+      <span id="roleBadge" class="pill pill-violet">Student (Anonymous)</span>
+    </div>
+
+    <div class="proto-right">
+      <label class="switch">
+        <input type="checkbox" id="defenseToggle" onchange="toggleDefenseNotes(this.checked)" />
+        <span class="switch-track"><span class="switch-dot"></span></span>
+        <span class="switch-label">Defense Notes</span>
+      </label>
+      <button onclick="resetDemoData()" class="btn btn-xs btn-glass">Reset All Data</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOP NAVIGATION -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <button onclick="goRoleHome()" class="brand">
+      <span class="brand-mark">ST</span>
+      <span class="brand-text">
+        <span class="brand-name">CCSICT SafeTrack</span>
+        <span class="brand-sub">Gender &amp; Development · Student Support</span>
+      </span>
+    </button>
+
+    <nav class="nav">
+      <button onclick="go('wf01')" id="tab-wf01" class="nav-tab">Home</button>
+      <button onclick="go('wf02')" id="tab-report" class="nav-tab">Report</button>
+      <button onclick="go('wf04')" id="tab-wf04" class="nav-tab">My Ticket</button>
+      <button onclick="go('wf05')" id="tab-wf05" class="nav-tab hidden">Staff Dashboard</button>
+    </nav>
+  </div>
+</header>
+
+<main class="shell">
+
+  <!-- WF01 -->
+  <section id="view-wf01" class="view hidden stack">
+    <div class="hero">
+      <div class="hero-inner">
+        <span class="pill pill-lime">100% Anonymous · No Login Required</span>
+        <h1 class="hero-title">
+          A safe space to<br />
+          <span class="grad-text">speak up.</span>
+        </h1>
+        <p class="hero-lede">
+          Whether it was an uncomfortable joke, unfair role division in a coding lab,
+          or subtle exclusion — your voice matters. Reports go straight to the CCSICT
+          GAD Committee. No names. No accounts. No tracing.
+        </p>
+        <div class="hero-actions">
+          <button onclick="go('wf02')" class="btn btn-lime">Report an Incident</button>
+          <button onclick="document.getElementById('wf01LookupInput').focus()" class="btn btn-glass">Check My Ticket</button>
+        </div>
+      </div>
+
+      <div class="ticker" aria-hidden="true">
+        <div class="ticker-track">
+          <span>100% anonymous</span><span>◆</span>
+          <span>zero login</span><span>◆</span>
+          <span>metadata stripped</span><span>◆</span>
+          <span>you hold the only key</span><span>◆</span>
+          <span>survivor-centred</span><span>◆</span>
+          <span>100% anonymous</span><span>◆</span>
+          <span>zero login</span><span>◆</span>
+          <span>metadata stripped</span><span>◆</span>
+          <span>you hold the only key</span><span>◆</span>
+          <span>survivor-centred</span><span>◆</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="card promise lift">
+        <div class="promise-num">1</div>
+        <h3>No identity collected</h3>
+        <p>We never ask for your name, student number, or email. There is no login, and no IP logging in this prototype.</p>
+      </div>
+      <div class="card promise lift">
+        <div class="promise-num">2</div>
+        <h3>Metadata is stripped</h3>
+        <p>Screenshots and attachments are cleaned of GPS location, device model, and capture timestamps before storage.</p>
+      </div>
+      <div class="card promise lift">
+        <div class="promise-num">3</div>
+        <h3>You keep the only key</h3>
+        <p>You receive a private <span class="code-chip">SAFE-XXXX</span> code. Only someone holding that code can view the case status and chat.</p>
+      </div>
+    </div>
+
+    <div class="card center-narrow stack-sm">
+      <div>
+        <h2 class="card-title">Check an existing ticket</h2>
+        <p class="card-sub">Enter the private code you received when you filed your report.</p>
+      </div>
+      <div class="lookup-row">
+        <input id="wf01LookupInput" type="text" placeholder="SAFE-XXXX" class="input" />
+        <button onclick="lookupTicket(document.getElementById('wf01LookupInput').value)" class="btn btn-primary">Open Case</button>
+      </div>
+      <p class="hint">Your code is shown once after you submit a report — save it, because it is the only way back into your case.</p>
+    </div>
+
+    <div class="defense-note narrow">
+      <p>Defense Note — WF01 Entry &amp; Privacy Guarantee</p>
+      <p>This screen operationalises the anonymity principle of RA 11313 (Safe Spaces Act) and the Data Privacy Act of 2012 (RA 10173): the system collects the <em>minimum</em> necessary personal data — in fact, none. Identity is replaced by a bearer-token-style case code, so the burden of confidentiality is structural rather than merely procedural.</p>
+    </div>
+  </section>
+
+  <!-- WF02 -->
+  <section id="view-wf02" class="view hidden">
+    <div class="narrow stack">
+      <div class="card stack">
+        <div class="card-head">
+          <div>
+            <h2 class="card-title">Tell us what happened</h2>
+            <p class="card-sub">Step 1 of 2 — the basics. Nothing here can identify you.</p>
+          </div>
+          <span class="pill pill-violet">Step 1 / 2</span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="w2Category">Type of incident / behavior <span class="req">*</span></label>
+          <select id="w2Category" class="sel">
+            <option value="">Select category…</option>
+            <option value="Gender Microaggression / Teasing">Gender Microaggression / Inappropriate Teasing</option>
+            <option value="Task Stereotyping (Lab/Projects)">Task Stereotyping in Lab/Projects (e.g., restricted from programming tasks)</option>
+            <option value="Verbal Harassment / Slurs">Verbal Harassment or Disrespectful Remarks</option>
+            <option value="Exclusion from Activities">Exclusion from recitations, peer study groups, or activities</option>
+            <option value="Other Equity Concern">Other unfair or biased treatment</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field-label">How did the behavior seem to you? <span class="req">*</span></label>
+          <p class="field-note">This is not about blame. It feeds the committee's Unawareness Index so we know where to focus awareness workshops.</p>
+          <div class="pick-grid" id="intentGrid">
+            <label class="pick">
+              <input type="radio" name="w2Intent" value="Unaware" />
+              <strong>They probably didn't realise</strong>
+              <small>Unintentional / lack of awareness</small>
+            </label>
+            <label class="pick">
+              <input type="radio" name="w2Intent" value="Intentional" />
+              <strong>It seemed deliberate</strong>
+              <small>Targeted or repeated on purpose</small>
+            </label>
+            <label class="pick">
+              <input type="radio" name="w2Intent" value="Unsure" />
+              <strong>I'm not sure</strong>
+              <small>Hard to tell from where I stood</small>
+            </label>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label class="field-label" for="w2Cohort">Your section / program</label>
+            <select id="w2Cohort" class="sel">
+              <option value="BSIS">BS Information Systems (BSIS)</option>
+              <option value="BSIT">BS Information Technology (BSIT)</option>
+              <option value="BSCS">BS Computer Science (BSCS)</option>
+              <option value="BSDSA">BS Data Science and Analytics (BSDSA)</option>
+              <option value="BLIS">Bachelor of Library and Information Science (BLIS)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="w2Location">Where did this occur?</label>
+            <select id="w2Location" class="sel">
+              <optgroup label="Classrooms">
+                <option value="Room 1">Room 1</option>
+                <option value="Room 2">Room 2</option>
+                <option value="Room 3">Room 3</option>
+                <option value="Room 4">Room 4</option>
+                <option value="Room 5">Room 5</option>
+                <option value="Room 6">Room 6</option>
+              </optgroup>
+              <optgroup label="Centrum Laboratories">
+                <option value="Centrum Lab 1">Centrum Lab 1</option>
+                <option value="Centrum Lab 2">Centrum Lab 2</option>
+                <option value="Centrum Lab 3">Centrum Lab 3</option>
+                <option value="Centrum Lab 4">Centrum Lab 4</option>
+              </optgroup>
+              <optgroup label="CSS Laboratory">
+                <option value="CSS Lab 1">CSS Lab 1</option>
+              </optgroup>
+              <optgroup label="IT Laboratories">
+                <option value="IT Lab 1">IT Lab 1</option>
+                <option value="IT Lab 2">IT Lab 2</option>
+              </optgroup>
+            </select>
+          </div>
+        </div>
+
+        <div class="row-2" style="grid-template-columns:auto 1fr;">
+          <button onclick="go('wf01')" class="btn btn-ghost">Cancel</button>
+          <button onclick="gotoStep2()" class="btn btn-primary">Continue to Step 2 →</button>
+        </div>
+      </div>
+
+      <div class="defense-note">
+        <p>Defense Note — WF02 Perceived Intent Capture</p>
+        <p>The "perceived intent" field separates <em>awareness deficits</em> from <em>hostility</em>. GAD literature distinguishes between unconscious gender bias (which is best addressed through sensitivity training and curriculum redesign) and intentional harassment (which requires disciplinary escalation). Capturing the reporter's perception lets the committee route cases correctly while feeding the Unawareness Index in WF05.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WF03 -->
+  <section id="view-wf03" class="view hidden">
+    <div class="narrow stack">
+      <div class="card stack">
+        <div class="card-head">
+          <div>
+            <h2 class="card-title">Describe it in your own words</h2>
+            <p class="card-sub">Step 2 of 2 — share as much or as little as you feel comfortable with.</p>
+          </div>
+          <span class="pill pill-violet">Step 2 / 2</span>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="w3Desc">What happened? <span class="req">*</span></label>
+          <textarea id="w3Desc" rows="5" oninput="draft.desc = this.value"
+            placeholder="Briefly describe what took place, what was said or done, and how it affected you…"></textarea>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="w3File">Optional screenshot or attachment</label>
+          <p class="field-note">Device metadata and image location info will be safely stripped.</p>
+          <input id="w3File" type="file" class="file-input" onchange="handleFileChosen(event)" />
+          <div id="exifStatus" class="strip-ok hidden"></div>
+        </div>
+
+        <div class="note-box">
+          By submitting, you confirm this report is made in good faith. You will receive a private
+          <span class="code-chip">SAFE-XXXX</span> code — save it, because it is the only way back into this case.
+        </div>
+
+        <div class="row-2" style="grid-template-columns:auto 1fr;">
+          <button onclick="go('wf02')" class="btn btn-ghost">← Back</button>
+          <button onclick="submitReport()" class="btn btn-primary">Submit Confidential Report</button>
+        </div>
+      </div>
+
+      <div class="defense-note">
+        <p>Defense Note — WF03 Metadata Stripping</p>
+        <p>EXIF data in photos can contain GPS coordinates, device serial numbers, and timestamps — all of which can de-anonymise a reporter. The prototype simulates stripping these fields before storage, demonstrating <em>privacy by design</em> as required by RA 10173 §20 (security measures for personal data).</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- WF04 -->
+  <section id="view-wf04" class="view hidden">
+    <div id="wf04Body" class="narrow stack"></div>
+    <div class="defense-note narrow">
+      <p>Defense Note — WF04 Two-Way Anonymous Chat</p>
+      <p>The chat channel preserves the reporter's anonymity while enabling a restorative, dialogue-based resolution rather than a purely punitive one. Because the case code is a bearer token, the student controls disclosure — this mirrors survivor-centred practice in gender-based violence response protocols.</p>
+    </div>
+  </section>
+
+  <!-- WF05 -->
+  <section id="view-wf05" class="view hidden stack">
+    <div id="wf05Denied" class="card state hidden">
+      <div class="state-icon">!</div>
+      <h2>Restricted area</h2>
+      <p>The staff dashboard is only available to GAD Coordinators and the College Admin. Student accounts can submit reports and track their own case in <strong>My Ticket</strong>.</p>
+      <button onclick="go('wf01')" class="btn btn-glass btn-xs">Back to Home</button>
+    </div>
+
+    <div id="wf05Content" class="stack">
+      <div class="card">
+        <div class="card-head" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
+          <div>
+            <h2 class="card-title">Staff triage &amp; equity analytics</h2>
+            <p id="wf05RoleNote" class="card-sub"></p>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center;">
+            <button id="exportCsvBtn" onclick="handleExport()" class="btn btn-primary btn-xs">Export Full Triage CSV</button>
+            <button id="importCsvBtn" onclick="document.getElementById('csvFileInput').click()" class="btn btn-glass btn-xs">Import CSV</button>
+            <input id="csvFileInput" type="file" accept=".csv" class="hidden" onchange="onCsvFileChosen(event)" />
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-4" id="kpiGrid"></div>
+
+      <div class="card stack-sm">
+        <div class="card-head" style="margin-bottom:0;">
+          <div>
+            <h3 class="card-title" style="font-size:15px;">Unawareness Index</h3>
+            <p class="card-sub">Share of reports where the behavior was perceived as unintentional — a proxy for awareness-training need.</p>
+          </div>
+          <span id="unawareSummary" class="pill pill-violet">0%</span>
+        </div>
+        <div id="unawareBars" class="stack-sm"></div>
+      </div>
+
+      <div class="card stack-sm">
+        <div class="card-head" style="margin-bottom:0;">
+          <div>
+            <h3 class="card-title" style="font-size:15px;">Reports by section</h3>
+            <p class="card-sub">Sections with fewer than 5 reports are masked for statistical privacy.</p>
+          </div>
+        </div>
+        <div class="tbl-wrap scroll-thin">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Section</th><th>Reports</th><th>Unaware</th><th>Resolved</th><th>Unawareness rate</th>
+              </tr>
+            </thead>
+            <tbody id="cohortTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="adminPrivacyShield" class="shield hidden">
+        <div class="shield-icon">🔒</div>
+        <h3>Privacy Shield Active</h3>
+        <p>The College Admin role can view aggregated equity metrics only. Individual case records, the Kanban workflow, and the case triage table are hidden to prevent re-identification of anonymous reporters.</p>
+      </div>
+
+      <div id="wf05KanbanSection" class="card stack-sm">
+        <div class="card-head" style="margin-bottom:0;">
+          <div>
+            <h3 class="card-title" style="font-size:15px;">Case Kanban</h3>
+            <p class="card-sub">Move a case forward as it is reviewed and resolved.</p>
+          </div>
+        </div>
+        <div class="kanban" id="kanbanBoard"></div>
+      </div>
+
+      <div id="wf05TableSection" class="card stack-sm">
+        <div class="card-head" style="margin-bottom:0;">
+          <div>
+            <h3 class="card-title" style="font-size:15px;">Case triage table</h3>
+          </div>
+          <span class="pill pill-glass">Total logged: <span id="logCount" class="mono" style="color:#E4F1FF;font-size:11px;">0</span></span>
+        </div>
+        <div class="tbl-wrap scroll-thin">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Ticket ID</th><th>Date</th><th>Section</th><th>Category</th>
+                <th>Intent</th><th>Status</th><th>Chat</th><th>Open</th>
+              </tr>
+            </thead>
+            <tbody id="triageTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="defense-note">
+        <p>Defense Note — WF05 Statistical Disclosure Control</p>
+        <p>Small-cell suppression (the <span class="mono">&lt; 5</span> rule) is a standard statistical disclosure control technique: reporting counts of 1–4 in a small cohort makes individual reporters trivially re-identifiable by process of elimination. Combined with role-based aggregation for the College Admin, this implements the <em>purpose limitation</em> and <em>data minimisation</em> principles of RA 10173.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- POLICY -->
+  <section class="card policy">
+    <details>
+      <summary>Campus Equity Guidelines &amp; The Safe Spaces Act (RA 11313)</summary>
+      <div class="policy-body">
+        <p>Under Republic Act No. 11313 (Safe Spaces Act) and institutional GAD policies, all students are entitled to a classroom and laboratory free of gender-based sexual harassment, derogatory remarks, and systemic exclusion.</p>
+        <p>The CCSICT GAD Committee uses logged reports to identify recurring biases in laboratory groupings, facilitate faculty sensitivity workshops, and ensure non-punitive, restorative resolutions.</p>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<!-- STAFF ACCESS MODAL -->
+<div id="authModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-icon">🔒</div>
+    <div>
+      <h3 class="modal-title">Staff Access</h3>
+      <p id="authModalSubtitle" class="modal-sub">Enter the password to continue.</p>
+    </div>
+    <input id="authPasswordInput" type="password" autocomplete="off" placeholder="Password"
+      class="input"
+      onkeydown="if(event.key==='Enter'){submitPassword();} if(event.key==='Escape'){cancelPassword();}" />
+    <p id="authError" class="modal-error hidden"></p>
+    <div class="row-2">
+      <button onclick="cancelPassword()" class="btn btn-ghost btn-xs">Cancel</button>
+      <button onclick="submitPassword()" class="btn btn-primary btn-xs">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========== OPTIONAL EXTERNAL FUNNEL ========== */
+const WEBHOOK_URL = "";
+
+/* ========== STAFF PASSWORDS ========== */
+const PASSWORDS = { gad: 'oneandonly', admin: 'adminpw' };
+
+const STORAGE_KEY = 'safetrack_tickets_v1';
+const DEFENSE_KEY = 'safetrack_defense_v1';
+
+const CATEGORIES = [
+  'Gender Microaggression / Teasing',
+  'Task Stereotyping (Lab/Projects)',
+  'Verbal Harassment / Slurs',
+  'Exclusion from Activities',
+  'Other Equity Concern'
+];
+const COHORTS = ['BSIS', 'BSIT', 'BSCS', 'BSDSA', 'BLIS'];
+const LOCATIONS = [
+  'Room 1','Room 2','Room 3','Room 4','Room 5','Room 6',
+  'Centrum Lab 1','Centrum Lab 2','Centrum Lab 3','Centrum Lab 4',
+  'CSS Lab 1','IT Lab 1','IT Lab 2'
+];
+const INTENTS = ['Unaware', 'Intentional', 'Unsure'];
+const STATUSES = ['New', 'In Review', 'Resolved'];
+const SEED_TICKETS = [];
+
+/* ---------- STATE ---------- */
+let currentRole = 'student';
+let pendingRole = null;
+let tickets = [];
+let activeTicketId = null;
+let currentView = 'wf01';
+let draft = {
+  category:'', intent:'', cohort:'BSIS', location:'Room 1',
+  desc:'', metadataStripped:false, fileName:''
+};
+
+/* ---------- HELPERS ---------- */
+function esc(s){
+  return String(s===null||s===undefined?'':s).replace(/[&<>"']/g, c => (
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+  ));
+}
+function pad2(n){ return String(n).padStart(2,'0'); }
+function nowStamp(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function todayStamp(){ return nowStamp().slice(0,10); }
+function newTicketId(){
+  let id, guard=0;
+  do { id='SAFE-'+Math.floor(1000+Math.random()*9000); guard++; }
+  while (tickets.some(t=>t.id===id) && guard<500);
+  return id;
+}
+function toast(msg){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 2800);
+}
+function normalizeTicket(t){
+  return {
+    id:(t.id || ('SAFE-'+Math.floor(1000+Math.random()*9000))).toUpperCase(),
+    date: t.date || nowStamp(),
+    cohort: t.cohort || 'BSIS',
+    category: t.category || 'Other Equity Concern',
+    intent: INTENTS.includes(t.intent) ? t.intent : 'Unsure',
+    location: t.location || 'Room 1',
+    desc: t.desc || '',
+    status: STATUSES.includes(t.status) ? t.status : 'New',
+    metadataStripped: !!t.metadataStripped,
+    remarks: t.remarks || 'Report received. Awaiting GAD coordinator review.',
+    chat: Array.isArray(t.chat) ? t.chat.map(m=>({
+      from: m && m.from==='gad' ? 'gad' : 'student',
+      text: (m && m.text) ? String(m.text) : '',
+      at: (m && m.at) ? m.at : nowStamp()
+    })) : []
+  };
+}
+
+/* ---------- PERSISTENCE ---------- */
+function loadTickets(){
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw){
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)){ tickets = parsed.map(normalizeTicket); return; }
+    }
+  } catch(err){ console.warn('SafeTrack: could not read localStorage.', err); }
+  tickets = [];
+  saveTickets();
+}
+function saveTickets(){
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets)); }
+  catch(err){ console.warn('SafeTrack: could not persist tickets.', err); }
+}
+function resetDemoData(){
+  if (!confirm('Reset all data? This permanently clears every saved report and chat message on this device.')) return;
+  try { localStorage.removeItem(STORAGE_KEY); } catch(e){}
+  tickets = [];
+  saveTickets();
+  activeTicketId = null;
+  draft = { category:'', intent:'', cohort:'BSIS', location:'Room 1', desc:'', metadataStripped:false, fileName:'' };
+  goRoleHome();
+  toast('All local data cleared. The portal is now empty.');
+}
+
+/* ---------- ROLE GATING ---------- */
+function requestRoleSwitch(role){
+  if (role === currentRole) return;
+  if (role === 'student'){ applyRole('student'); return; }
+  if (!PASSWORDS.hasOwnProperty(role)){ document.getElementById('roleSelect').value = currentRole; return; }
+  pendingRole = role;
+  const subtitle = role === 'gad' ? 'Enter the GAD Coordinator password.' : 'Enter the College Admin password.';
+  document.getElementById('authModalSubtitle').textContent = subtitle;
+  const input = document.getElementById('authPasswordInput');
+  input.value = '';
+  const err = document.getElementById('authError');
+  err.textContent = ''; err.classList.add('hidden');
+  document.getElementById('authModal').classList.remove('hidden');
+  setTimeout(()=>input.focus(), 40);
+}
+function submitPassword(){
+  if (!pendingRole){ cancelPassword(); return; }
+  const input = document.getElementById('authPasswordInput');
+  const err = document.getElementById('authError');
+  if (input.value === PASSWORDS[pendingRole]){
+    const next = pendingRole;
+    pendingRole = null;
+    document.getElementById('authModal').classList.add('hidden');
+    applyRole(next);
+  } else {
+    err.textContent = 'Incorrect password. Please try again.';
+    err.classList.remove('hidden');
+    input.value = ''; input.focus();
+  }
+}
+function cancelPassword(){
+  pendingRole = null;
+  document.getElementById('authModal').classList.add('hidden');
+  document.getElementById('roleSelect').value = currentRole;
+}
+function applyRole(role){
+  currentRole = role;
+  document.getElementById('roleSelect').value = role;
+  activeTicketId = null;
+  goRoleHome();
+}
+function goRoleHome(){
+  if (currentRole === 'student') go('wf01');
+  else go('wf05');
+}
+function updateRoleChrome(){
+  const badge = document.getElementById('roleBadge');
+  const tabHome = document.getElementById('tab-wf01');
+  const tabReport = document.getElementById('tab-report');
+  const tabMyTicket = document.getElementById('tab-wf04');
+  const tabStaff = document.getElementById('tab-wf05');
+  if (currentRole === 'student'){
+    badge.textContent = 'Student (Anonymous)'; badge.className = 'pill pill-violet';
+    tabHome.classList.remove('hidden'); tabReport.classList.remove('hidden');
+    tabMyTicket.classList.remove('hidden'); tabStaff.classList.add('hidden');
+  } else if (currentRole === 'gad'){
+    badge.textContent = 'GAD Coordinator'; badge.className = 'pill pill-cyan';
+    tabHome.classList.add('hidden'); tabReport.classList.add('hidden');
+    tabMyTicket.classList.add('hidden'); tabStaff.classList.remove('hidden');
+  } else {
+    badge.textContent = 'College Admin'; badge.className = 'pill pill-pink';
+    tabHome.classList.add('hidden'); tabReport.classList.add('hidden');
+    tabMyTicket.classList.add('hidden'); tabStaff.classList.remove('hidden');
+  }
+}
+const TAB_FOR_VIEW = { wf01:'wf01', wf02:'report', wf03:'report', wf04:'wf04', wf05:'wf05' };
+function go(view){
+  const isStudent = currentRole === 'student';
+  const isGad = currentRole === 'gad';
+  const isAdmin = currentRole === 'admin';
+  if (isStudent && view === 'wf05') view = 'wf01';
+  if ((isGad || isAdmin) && (view === 'wf01' || view === 'wf02' || view === 'wf03')) view = 'wf05';
+  if (isAdmin && view === 'wf04') view = 'wf05';
+  if (isGad && view === 'wf04' && !activeTicketId) view = 'wf05';
+  currentView = view;
+  document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
+  const target = document.getElementById('view-'+view);
+  if (target) target.classList.remove('hidden');
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('is-active'));
+  const tabId = TAB_FOR_VIEW[view] || 'wf01';
+  const tabBtn = document.getElementById('tab-'+tabId);
+  if (tabBtn) tabBtn.classList.add('is-active');
+  window.scrollTo({ top:0, behavior:'smooth' });
+  renderAll();
+}
+function renderAll(){
+  updateRoleChrome();
+  if (currentView === 'wf02') renderWF02();
+  if (currentView === 'wf03') renderWF03();
+  if (currentView === 'wf04') renderWF04();
+  if (currentView === 'wf05') renderWF05();
+}
+function toggleDefenseNotes(on){
+  document.body.classList.toggle('show-defense', !!on);
+  try { localStorage.setItem(DEFENSE_KEY, on ? '1' : '0'); } catch(e){}
+}
+
+/* ---------- WF02 ---------- */
+function renderWF02(){
+  const catSel = document.getElementById('w2Category');
+  const cohortSel = document.getElementById('w2Cohort');
+  const locSel = document.getElementById('w2Location');
+  if (catSel) catSel.value = draft.category || '';
+  if (cohortSel) cohortSel.value = draft.cohort || 'BSIS';
+  if (locSel) locSel.value = draft.location || 'Room 1';
+  document.querySelectorAll('input[name="w2Intent"]').forEach(r => { r.checked = (r.value === draft.intent); });
+}
+function gotoStep2(){
+  draft.category = document.getElementById('w2Category').value;
+  const checked = document.querySelector('input[name="w2Intent"]:checked');
+  draft.intent = checked ? checked.value : '';
+  draft.cohort = document.getElementById('w2Cohort').value;
+  draft.location = document.getElementById('w2Location').value;
+  if (!draft.category){ toast('Please select the type of incident.'); return; }
+  if (!draft.intent){ toast('Please tell us how the behavior seemed to you.'); return; }
+  go('wf03');
+}
+
+/* ---------- WF03 ---------- */
+function renderWF03(){
+  const ta = document.getElementById('w3Desc');
+  if (ta) ta.value = draft.desc || '';
+  const exif = document.getElementById('exifStatus');
+  if (exif){
+    if (draft.metadataStripped && draft.fileName){
+      exif.classList.remove('hidden');
+      exif.innerHTML = `<strong>Metadata stripped.</strong> GPS coordinates, device model, capture timestamp and author tags were removed from <span class="mono">${esc(draft.fileName)}</span>. Only the image content is retained.`;
+    } else {
+      exif.classList.add('hidden'); exif.innerHTML = '';
+    }
+  }
+  const fileInput = document.getElementById('w3File');
+  if (fileInput && !draft.fileName) fileInput.value = '';
+}
+function handleFileChosen(event){
+  const file = event.target.files && event.target.files[0];
+  const box = document.getElementById('exifStatus');
+  if (!file){
+    draft.metadataStripped = false; draft.fileName = '';
+    if (box){ box.classList.add('hidden'); box.innerHTML = ''; }
+    return;
+  }
+  draft.metadataStripped = true;
+  draft.fileName = file.name;
+  if (box){
+    box.classList.remove('hidden');
+    box.innerHTML = `<strong>Metadata stripped.</strong> GPS coordinates, device model, capture timestamp and author tags were removed from <span class="mono">${esc(file.name)}</span>. Only the image content is retained.`;
+  }
+}
+
+/* ---------- SUBMISSION ---------- */
+function submitReport(){
+  draft.desc = (document.getElementById('w3Desc').value || '').trim();
+  if (!draft.category){ toast('Please choose a category first.'); go('wf02'); return; }
+  if (!draft.desc){ toast('Please describe what happened before submitting.'); return; }
+
+  const ticket = normalizeTicket({
+    id: newTicketId(), date: nowStamp(),
+    cohort: draft.cohort || 'BSIS',
+    category: draft.category,
+    intent: draft.intent || 'Unsure',
+    location: draft.location || 'Room 1',
+    desc: draft.desc, status: 'New',
+    metadataStripped: draft.metadataStripped,
+    remarks: 'Report received. Awaiting GAD coordinator review.',
+    chat: []
+  });
+  tickets.unshift(ticket);
+  saveTickets();
+  sendToExternalFunnel(ticket);
+  activeTicketId = ticket.id;
+  draft = { category:'', intent:'', cohort:'BSIS', location:'Room 1', desc:'', metadataStripped:false, fileName:'' };
+  const ta = document.getElementById('w3Desc'); if (ta) ta.value = '';
+  const fi = document.getElementById('w3File'); if (fi) fi.value = '';
+  const exif = document.getElementById('exifStatus'); if (exif){ exif.classList.add('hidden'); exif.innerHTML = ''; }
+  go('wf04');
+  toast('Report submitted. Your ticket code is ' + ticket.id);
+}
+async function sendToExternalFunnel(ticket){
+  if (!WEBHOOK_URL || typeof WEBHOOK_URL !== 'string' || WEBHOOK_URL.trim() === '') return;
+  try {
+    const payload = {
+      source:'CCSICT SafeTrack', event:'ticket.created',
+      ticket_id: ticket.id, date: ticket.date,
+      cohort: ticket.cohort, category: ticket.category,
+      perceived_intent: ticket.intent, location: ticket.location,
+      status: ticket.status, metadata_stripped: ticket.metadataStripped,
+      description: ticket.desc
+    };
+    await fetch(WEBHOOK_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+  } catch(err){ console.warn('SafeTrack: external funnel skipped —', err && err.message ? err.message : err); }
+}
+
+/* ---------- WF04 ---------- */
+function lookupTicket(code){
+  if (currentRole !== 'student'){ toast('Ticket lookup is a student feature.'); goRoleHome(); return; }
+  const clean = String(code || '').trim().toUpperCase();
+  if (!clean){ toast('Please enter a ticket code.'); return; }
+  const found = tickets.find(t => t.id === clean);
+  if (!found){ toast('Ticket not found. Please check your code.'); return; }
+  activeTicketId = found.id;
+  go('wf04');
+}
+function lookupFromWf04(){
+  const input = document.getElementById('wf04LookupInput');
+  lookupTicket(input ? input.value : '');
+}
+function statusBadgeClass(status){
+  if (status === 'Resolved') return 'badge-mint';
+  if (status === 'In Review') return 'badge-amber';
+  return 'badge-mute';
+}
+function renderWF04(){
+  const body = document.getElementById('wf04Body');
+  if (!body) return;
+  const t = tickets.find(x => x.id === activeTicketId);
+
+  if (!t){
+    if (currentRole !== 'student'){ body.innerHTML = ''; go('wf05'); return; }
+    body.innerHTML = `
+      <div class="card state">
+        <div class="state-icon" style="background:rgba(148,0,255,.16);border-color:rgba(148,0,255,.45);color:#d4a3ff;">?</div>
+        <h2>Open a case</h2>
+        <p>Enter the private ticket code you received when you filed your report.</p>
+        <div class="lookup-row" style="width:100%;max-width:460px;margin-top:8px;">
+          <input id="wf04LookupInput" type="text" placeholder="SAFE-XXXX"
+            onkeydown="if(event.key==='Enter'){lookupFromWf04();}" class="input" />
+          <button onclick="lookupFromWf04()" class="btn btn-primary">Open</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const isGadCaseView = currentRole === 'gad';
+  const steps = ['New','In Review','Resolved'];
+  const activeIdx = Math.max(0, steps.indexOf(t.status));
+
+  const timeline = steps.map((s,i)=>{
+    const done = i <= activeIdx;
+    return `<div class="tl-step ${done?'done':''}"><span class="tl-dot">${i+1}</span><span class="tl-label">${s}</span></div>`;
+  }).join('<span class="tl-line"></span>');
+
+  const chatHtml = (t.chat && t.chat.length)
+    ? t.chat.map(m=>`
+        <div class="msg ${m.from==='gad'?'msg-gad':'msg-me'}">
+          <div class="bubble">
+            <span class="msg-meta">${m.from==='gad'?'GAD Coordinator':(isGadCaseView?'Student':'You')} · ${esc(m.at)}</span>
+            <span class="msg-text">${esc(m.text)}</span>
+          </div>
+        </div>`).join('')
+    : `<p class="chat-empty">No messages yet. The GAD committee will reply here.</p>`;
+
+  const chatPlaceholder = isGadCaseView ? 'Reply as GAD Coordinator…' : 'Write a message to the GAD committee…';
+
+  body.innerHTML = `
+    <div class="card">
+      <div class="case-head-top">
+        <div>
+          <span class="eyebrow">${isGadCaseView ? 'Case Detail' : 'Anonymous Case Receipt'}</span>
+          <span class="ticket-code">${esc(t.id)}</span>
+          <span class="ticket-date">Filed ${esc(t.date)}</span>
+        </div>
+        <span class="badge ${statusBadgeClass(t.status)}">${esc(t.status)}</span>
+      </div>
+      <div class="timeline">${timeline}</div>
+      ${isGadCaseView ? '' : `
+        <div class="row-2" style="margin-top:18px;">
+          <button onclick="copyActiveCode()" class="btn btn-glass btn-xs">Copy Code</button>
+          <button onclick="downloadReceipt()" class="btn btn-glass btn-xs">Download Receipt (.txt)</button>
+        </div>
+      `}
+    </div>
+
+    <div class="card stack-sm">
+      <h3 class="card-title" style="font-size:15px;padding-bottom:14px;border-bottom:1px solid var(--stroke);">Case details</h3>
+      <div class="detail-grid">
+        <div class="detail-item"><span>Section</span><span>${esc(t.cohort)}</span></div>
+        <div class="detail-item"><span>Category</span><span>${esc(t.category)}</span></div>
+        <div class="detail-item"><span>Perceived Intent</span><span>${esc(t.intent)}</span></div>
+        <div class="detail-item"><span>Location</span><span>${esc(t.location)}</span></div>
+        <div class="detail-item"><span>Metadata Stripped</span><span>${t.metadataStripped ? 'Yes' : 'No'}</span></div>
+        <div class="detail-item"><span>Messages</span><span>${(t.chat||[]).length}</span></div>
+      </div>
+      <div class="field" style="margin-top:6px;">
+        <span class="field-label">${isGadCaseView ? 'Student narrative' : 'Your narrative'}</span>
+        <p class="narrative">${esc(t.desc)}</p>
+      </div>
+      <div class="field">
+        <span class="field-label">Coordinator remarks</span>
+        <p class="narrative">${esc(t.remarks || 'No remarks yet.')}</p>
+      </div>
+    </div>
+
+    <div class="card stack-sm">
+      <div>
+        <h3 class="card-title" style="font-size:15px;">Two-way anonymous chat</h3>
+        <p class="card-sub">Neither side sees the other's identity — only the case code connects you.</p>
+      </div>
+      <div class="chat-scroll scroll-thin">${chatHtml}</div>
+      <div class="chat-bar">
+        <input id="chatInput" type="text" placeholder="${chatPlaceholder}"
+          onkeydown="if(event.key==='Enter'){sendChat();}" class="input" />
+        <button onclick="sendChat()" class="btn btn-primary">Send</button>
+      </div>
+    </div>
+  `;
+}
+function sendChat(){
+  const t = tickets.find(x => x.id === activeTicketId);
+  if (!t) return;
+  const input = document.getElementById('chatInput');
+  const text = input ? input.value.trim() : '';
+  if (!text) return;
+  const from = currentRole === 'gad' ? 'gad' : 'student';
+  if (!Array.isArray(t.chat)) t.chat = [];
+  t.chat.push({ from, text, at: nowStamp() });
+  saveTickets();
+  renderWF04();
+  toast('Message sent.');
+}
+function copyActiveCode(){
+  const t = tickets.find(x => x.id === activeTicketId);
+  if (!t) return;
+  if (navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t.id)
+      .then(()=>toast('Ticket code copied: ' + t.id))
+      .catch(()=>toast('Copy failed — your code is ' + t.id));
+  } else { toast('Your ticket code is ' + t.id); }
+}
+function downloadReceipt(){
+  const t = tickets.find(x => x.id === activeTicketId);
+  if (!t) return;
+  const lines = [
+    '==================================================',
+    '   CCSICT SafeTrack — Anonymous Case Receipt',
+    '==================================================',
+    '',
+    'Ticket Code       : ' + t.id,
+    'Date Filed        : ' + t.date,
+    'Section / Program : ' + t.cohort,
+    'Category          : ' + t.category,
+    'Perceived Intent  : ' + t.intent,
+    'Location          : ' + t.location,
+    'Current Status    : ' + t.status,
+    'Metadata Stripped : ' + (t.metadataStripped ? 'Yes' : 'No'),
+    'Receipt Generated : ' + nowStamp(),
+    '',
+    '---------------- YOUR NARRATIVE ----------------',
+    t.desc || '(no narrative provided)',
+    '',
+    '------------- COORDINATOR REMARKS --------------',
+    t.remarks || 'No remarks yet.',
+    '',
+    '----------------- CHAT HISTORY -----------------',
+    (t.chat && t.chat.length
+      ? t.chat.map(m => `[${m.at}] ${m.from==='gad'?'GAD':'You'}: ${m.text}`).join('\n')
+      : '(no messages yet)'),
+    '',
+    '==================================================',
+    'KEEP THIS CODE PRIVATE.',
+    'Anyone holding this code can view the status and',
+    'chat thread of this case. There is no name or',
+    'account attached to it.',
+    '==================================================',
+    ''
+  ];
+  downloadFile('SafeTrack_Receipt_' + t.id + '.txt', lines.join('\r\n'), 'text/plain;charset=utf-8;');
+  toast('Receipt downloaded: SafeTrack_Receipt_' + t.id + '.txt');
+}
+
+/* ---------- FILE DOWNLOAD ---------- */
+function downloadFile(filename, content, mime){
+  const blob = new Blob([content], { type: mime || 'text/plain;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1500);
+}
+
+/* ---------- CSV UTILITIES ---------- */
+function csvCell(value){
+  const s = (value===null||value===undefined)?'':String(value);
+  if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+function csvRow(cells){ return cells.map(csvCell).join(','); }
+function parseCSV(text){
+  const rows=[]; let row=[]; let field=''; let inQuotes=false;
+  const src = String(text||'').replace(/^\uFEFF/,'');
+  for (let i=0;i<src.length;i++){
+    const ch = src[i];
+    if (inQuotes){
+      if (ch==='"'){ if (src[i+1]==='"'){ field+='"'; i++; } else { inQuotes=false; } }
+      else field += ch;
+    } else {
+      if (ch==='"') inQuotes = true;
+      else if (ch===','){ row.push(field); field=''; }
+      else if (ch==='\n'){ row.push(field); field=''; rows.push(row); row=[]; }
+      else if (ch==='\r'){ /* ignore */ }
+      else field += ch;
+    }
+  }
+  if (field !== '' || row.length > 0){ row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ''));
+}
+
+/* ---------- WF05 ANALYTICS ---------- */
+function computeStats(){
+  const total = tickets.length;
+  const open = tickets.filter(t => t.status !== 'Resolved').length;
+  const resolved = tickets.filter(t => t.status === 'Resolved').length;
+  const unaware = tickets.filter(t => t.intent === 'Unaware').length;
+  const unawarePct = total ? (unaware/total)*100 : 0;
+  return { total, open, resolved, unaware, unawarePct };
+}
+function kpiCard(label, value, sub, tone){
+  return `
+    <div class="kpi ${tone||''}">
+      <span class="kpi-label">${esc(label)}</span>
+      <span class="kpi-value">${esc(value)}</span>
+      <span class="kpi-sub">${esc(sub)}</span>
+    </div>`;
+}
+function renderWF05(){
+  const denied = document.getElementById('wf05Denied');
+  const content = document.getElementById('wf05Content');
+  const isStaff = currentRole === 'gad' || currentRole === 'admin';
+  if (!isStaff){ denied.classList.remove('hidden'); content.classList.add('hidden'); return; }
+  denied.classList.add('hidden'); content.classList.remove('hidden');
+
+  const isGad = currentRole === 'gad';
+  const isAdmin = currentRole === 'admin';
+
+  document.getElementById('wf05RoleNote').textContent = isGad
+    ? 'Full access: Kanban workflow, individual case triage, status transitions, CSV import and export.'
+    : 'Aggregated view only. Individual cases are hidden by the Privacy Shield, and sections with fewer than 5 reports are suppressed.';
+
+  const exportBtn = document.getElementById('exportCsvBtn');
+  exportBtn.textContent = isGad ? 'Export Full Triage CSV' : 'Export Aggregated Equity CSV';
+  document.getElementById('importCsvBtn').classList.toggle('hidden', !isGad);
+  document.getElementById('adminPrivacyShield').classList.toggle('hidden', !isAdmin);
+  document.getElementById('wf05KanbanSection').classList.toggle('hidden', !isGad);
+  document.getElementById('wf05TableSection').classList.toggle('hidden', !isGad);
+
+  const stats = computeStats();
+  document.getElementById('kpiGrid').innerHTML = [
+    kpiCard('Total Reports', stats.total, 'All anonymous submissions', 'tone-lime'),
+    kpiCard('Open Cases', stats.open, 'New + In Review', 'tone-amber'),
+    kpiCard('Resolved', stats.resolved, 'Closed by the GAD committee', 'tone-mint'),
+    kpiCard('Unawareness Index', stats.unawarePct.toFixed(1)+'%', 'Reports perceived as unintentional', 'tone-violet')
+  ].join('');
+
+  document.getElementById('unawareSummary').textContent =
+    stats.unawarePct.toFixed(1)+'% overall ('+stats.unaware+' of '+stats.total+')';
+
+  document.getElementById('unawareBars').innerHTML = CATEGORIES.map(cat=>{
+    const items = tickets.filter(t=>t.category===cat);
+    const n = items.length;
+    const u = items.filter(t=>t.intent==='Unaware').length;
+    const pct = n ? Math.round((u/n)*100) : 0;
+    const masked = isAdmin && n>0 && n<5;
+    const label = masked ? 'Suppressed (&lt;5)' : (n===0?'No reports':u+' / '+n+' reports');
+    const width = masked ? 0 : pct;
+    return `
+      <div class="bar-row">
+        <div class="bar-head">
+          <span class="bar-name">${esc(cat)}</span>
+          <span class="bar-val">${label}${masked?'':(n?' · '+pct+'%':'')}</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
+      </div>`;
+  }).join('');
+
+  const cohortRows = COHORTS.map(cohort=>{
+    const items = tickets.filter(t=>t.cohort===cohort);
+    const n = items.length;
+    if (n===0) return '';
+    const u = items.filter(t=>t.intent==='Unaware').length;
+    const r = items.filter(t=>t.status==='Resolved').length;
+    const masked = n<5;
+    const cell = (val)=> masked
+      ? `<span style="color:var(--ink-3);font-style:italic;">Suppressed (&lt;5)</span>`
+      : esc(val);
+    return `
+      <tr>
+        <td style="font-weight:700;color:var(--ink);">${esc(cohort)}</td>
+        <td>${cell(n)}</td>
+        <td>${cell(u)}</td>
+        <td>${cell(r)}</td>
+        <td>${masked ? '<span style="color:var(--ink-3);font-style:italic;">Suppressed (&lt;5)</span>' : esc(Math.round((u/n)*100)+'%')}</td>
+      </tr>`;
+  }).filter(Boolean).join('');
+
+  document.getElementById('cohortTableBody').innerHTML = cohortRows ||
+    `<tr><td colspan="5" class="td-empty">No reports logged yet.</td></tr>`;
+
+  if (isGad){
+    document.getElementById('kanbanBoard').innerHTML = ['New','In Review','Resolved'].map(status=>{
+      const items = tickets.filter(t=>t.status===status);
+      const cls = status==='New' ? 'k-new' : status==='In Review' ? 'k-review' : 'k-done';
+      return `
+        <div class="kcol ${cls}">
+          <div class="kcol-head">
+            <span class="kcol-name">${status}</span>
+            <span class="kcol-count">${items.length}</span>
+          </div>
+          ${items.length ? items.map(kanbanCard).join('') : '<p class="kcol-empty">No cases</p>'}
+        </div>`;
+    }).join('');
+
+    document.getElementById('logCount').textContent = tickets.length;
+
+    document.getElementById('triageTableBody').innerHTML = tickets.map(t=>`
+      <tr>
+        <td class="td-id">${esc(t.id)}</td>
+        <td class="td-nowrap" style="color:var(--ink-3);">${esc(t.date)}</td>
+        <td style="font-weight:500;color:var(--ink);">${esc(t.cohort)}</td>
+        <td>${esc(t.category)}</td>
+        <td style="color:var(--ink-3);">${esc(t.intent)}</td>
+        <td>
+          <select onchange="setStatus('${esc(t.id)}', this.value)" class="sel sel-mini">
+            ${STATUSES.map(s => `<option value="${s}"${s===t.status?' selected':''}>${s}</option>`).join('')}
+          </select>
+        </td>
+        <td style="color:var(--ink-3);">${(t.chat||[]).length}</td>
+        <td><button onclick="openCase('${esc(t.id)}')" class="link-btn">View</button></td>
+      </tr>
+    `).join('') || `<tr><td colspan="8" class="td-empty">No reports logged yet.</td></tr>`;
+  }
+}
+function kanbanCard(t){
+  const buttons = (()=>{
+    const make = (label, next, cls)=>
+      `<button onclick="setStatus('${esc(t.id)}','${next}')" class="kbtn ${cls}">${label}</button>`;
+    if (t.status === 'New') return make('Start Review','In Review','kbtn-amber') + make('Resolve','Resolved','kbtn-mint');
+    if (t.status === 'In Review') return make('Resolve','Resolved','kbtn-mint') + make('Reopen','New','');
+    return make('Reopen','New','');
+  })();
+  return `
+    <div class="kcard">
+      <div class="kcard-top">
+        <button onclick="openCase('${esc(t.id)}')" class="kcard-id">${esc(t.id)}</button>
+        <span class="kcard-date">${esc((t.date||'').slice(5,10))}</span>
+      </div>
+      <p class="kcard-cat">${esc(t.category)}</p>
+      <p class="kcard-meta">${esc(t.cohort)} · ${esc(t.intent)}</p>
+      <div class="kcard-actions">${buttons}</div>
+    </div>`;
+}
+function setStatus(id, status){
+  const t = tickets.find(x=>x.id===id);
+  if (!t) return;
+  if (!STATUSES.includes(status)) return;
+  t.status = status;
+  saveTickets();
+  renderWF05();
+  if (activeTicketId === id && currentView === 'wf04') renderWF04();
+  toast(id + ' moved to "' + status + '".');
+}
+function openCase(id){
+  if (currentRole !== 'gad'){ toast('Only the GAD Coordinator can open individual cases.'); return; }
+  activeTicketId = id;
+  go('wf04');
+}
+
+/* ---------- CSV EXPORT ---------- */
+function handleExport(){
+  if (currentRole === 'gad') exportGadCsv();
+  else if (currentRole === 'admin') exportAdminCsv();
+  else toast('CSV export is available to staff accounts only.');
+}
+function exportGadCsv(){
+  const headers = ['Ticket_ID','Date','Cohort','Category','Perceived_Intent','Status','Metadata_Stripped','Description','Chat_Count','Latest_Message'];
+  const lines = [csvRow(headers)];
+  tickets.forEach(t=>{
+    const chat = Array.isArray(t.chat) ? t.chat : [];
+    const last = chat.length ? chat[chat.length-1] : null;
+    const latest = last ? (last.from==='gad'?'GAD: ':'Student: ') + last.text : '';
+    lines.push(csvRow([t.id,t.date,t.cohort,t.category,t.intent,t.status,t.metadataStripped?'Yes':'No',t.desc,chat.length,latest]));
+  });
+  const filename = 'SafeTrack_GAD_Triage_' + todayStamp() + '.csv';
+  downloadFile(filename, '\uFEFF'+lines.join('\r\n'), 'text/csv;charset=utf-8;');
+  toast('Exported '+tickets.length+' ticket(s) to '+filename);
+}
+function exportAdminCsv(){
+  const stats = computeStats();
+  const headers = ['Section','Cohort','Category','Tickets','Unaware','Resolved','Unawareness_Rate'];
+  const lines = [csvRow(headers)];
+  lines.push(csvRow(['SUMMARY','ALL','ALL',stats.total,stats.unaware,stats.resolved,stats.unawarePct.toFixed(1)+'%']));
+  COHORTS.forEach(cohort=>{
+    const items = tickets.filter(t=>t.cohort===cohort);
+    const n = items.length;
+    if (n===0) return;
+    if (n<5){
+      lines.push(csvRow(['BY_COHORT',cohort,'ALL','Suppressed (<5)','Suppressed (<5)','Suppressed (<5)','Suppressed (<5)']));
+    } else {
+      const u = items.filter(t=>t.intent==='Unaware').length;
+      const r = items.filter(t=>t.status==='Resolved').length;
+      const pct = ((u/n)*100).toFixed(1)+'%';
+      lines.push(csvRow(['BY_COHORT',cohort,'ALL',n,u,r,pct]));
+    }
+  });
+  CATEGORIES.forEach(cat=>{
+    const items = tickets.filter(t=>t.category===cat);
+    const n = items.length;
+    if (n===0) return;
+    if (n<5){
+      lines.push(csvRow(['BY_CATEGORY','ALL',cat,'Suppressed (<5)','Suppressed (<5)','Suppressed (<5)','Suppressed (<5)']));
+    } else {
+      const u = items.filter(t=>t.intent==='Unaware').length;
+      const r = items.filter(t=>t.status==='Resolved').length;
+      const pct = ((u/n)*100).toFixed(1)+'%';
+      lines.push(csvRow(['BY_CATEGORY','ALL',cat,n,u,r,pct]));
+    }
+  });
+  const filename = 'SafeTrack_Admin_Aggregated_' + todayStamp() + '.csv';
+  downloadFile(filename, '\uFEFF'+lines.join('\r\n'), 'text/csv;charset=utf-8;');
+  toast('Aggregated equity report exported: '+filename);
+}
+
+/* ---------- CSV IMPORT ---------- */
+function onCsvFileChosen(event){
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  if (currentRole !== 'gad'){ toast('CSV import is restricted to GAD Coordinators.'); event.target.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try { importCsvText(String(e.target.result||'')); }
+    catch(err){ console.error(err); toast('Could not parse that CSV file.'); }
+    event.target.value = '';
+  };
+  reader.onerror = ()=>{ toast('Could not read that file.'); event.target.value=''; };
+  reader.readAsText(file);
+}
+function importCsvText(text){
+  const rows = parseCSV(text);
+  if (rows.length < 2){ toast('That CSV file has no data rows.'); return; }
+  const header = rows[0].map(h=>String(h).trim().toLowerCase());
+  const colIndex = (name)=> header.indexOf(name);
+  const idIdx = colIndex('ticket_id');
+  if (idIdx === -1){ toast('CSV must contain a "Ticket_ID" column.'); return; }
+  let added=0, updated=0;
+  for (let r=1; r<rows.length; r++){
+    const row = rows[r];
+    const rawId = (row[idIdx]||'').trim().toUpperCase();
+    if (!rawId) continue;
+    const get = (name)=>{ const i = colIndex(name); return i>-1 ? String(row[i]===undefined?'':row[i]).trim() : ''; };
+    const existing = tickets.find(t=>t.id===rawId);
+    const rawStatus = get('status');
+    const status = STATUSES.find(s=>s.toLowerCase()===rawStatus.toLowerCase()) || (existing?existing.status:'New');
+    const rawIntent = get('perceived_intent');
+    const intent = INTENTS.find(i=>i.toLowerCase()===rawIntent.toLowerCase()) || (existing?existing.intent:'Unsure');
+    const rawMeta = get('metadata_stripped').toLowerCase();
+    const metadataStripped = rawMeta
+      ? (rawMeta==='yes'||rawMeta==='true'||rawMeta==='1')
+      : (existing?existing.metadataStripped:false);
+    let chat = existing && Array.isArray(existing.chat) ? existing.chat.slice() : [];
+    const latestMsg = get('latest_message');
+    if (!existing && latestMsg){
+      const m = latestMsg.match(/^(student|gad)\s*:\s*([\s\S]*)$/i);
+      chat = [{ from: m && m[1].toLowerCase()==='gad' ? 'gad' : 'student', text: m ? m[2].trim() : latestMsg, at: nowStamp() }];
+    }
+    const record = normalizeTicket({
+      id: rawId,
+      date: get('date') || (existing?existing.date:nowStamp()),
+      cohort: get('cohort') || (existing?existing.cohort:'BSIS'),
+      category: get('category') || (existing?existing.category:'Other Equity Concern'),
+      intent, location: get('location') || (existing?existing.location:'Room 1'),
+      desc: get('description') || (existing?existing.desc:''),
+      status, metadataStripped,
+      remarks: existing ? existing.remarks : 'Imported via CSV by the GAD Coordinator.',
+      chat
+    });
+    if (existing){ Object.assign(existing, record); updated++; }
+    else { tickets.push(record); added++; }
+  }
+  saveTickets();
+  renderWF05();
+  if (activeTicketId && currentView === 'wf04') renderWF04();
+  toast('CSV import complete — '+added+' new, '+updated+' updated.');
+}
+
+/* ---------- BOOTSTRAP ---------- */
+function init(){
+  currentRole = 'student';
+  document.getElementById('roleSelect').value = currentRole;
+  let storedDefense = '0';
+  try { storedDefense = localStorage.getItem(DEFENSE_KEY) || '0'; } catch(e){}
+  const defenseOn = storedDefense === '1';
+  document.getElementById('defenseToggle').checked = defenseOn;
+  document.body.classList.toggle('show-defense', defenseOn);
+  loadTickets();
+  updateRoleChrome();
+  go('wf01');
+}
+init();
+</script>
+</body>
+</html>
