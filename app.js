@@ -24,10 +24,18 @@ let pendingRole = null;
 let tickets = [];
 let activeTicketId = null;
 let currentView = 'wf01';
-let draft = {
-  category:'', intent:'', cohort:'BSIS', location:'Room 1',
-  desc:'', metadataStripped:false, fileName:''
-};
+let draft = freshDraft();
+let hasLoaded = false;          // true once the first fetch succeeds
+let lastSig = '';               // signature of last rendered dataset (skip no-op re-renders)
+let submitting = false;         // guards against double submission
+let justSubmittedId = null;     // ticket whose code hasn't been saved yet
+let codeSaved = false;
+const busyIds = new Set();      // tickets with an in-flight status change
+const triageFilter = { q:'', status:'' };
+
+function freshDraft(){
+  return { category:'', intent:'', cohort:'BSIS', location:'Room 1', desc:'', metadataStripped:false, fileName:'' };
+}
 
 /* ---------- HELPERS ---------- */
 function esc(s){
@@ -51,12 +59,49 @@ function newTicketId(){
   return id;
 }
 
-function toast(msg){
-  const el = document.createElement('div');
-  el.className = 'toast';
+let toastTimer = null;
+function toast(msg, tone){
+  // One reusable live region instead of stacking overlapping toasts
+  let el = document.getElementById('toast');
+  if (!el){
+    el = document.createElement('div');
+    el.id = 'toast';
+    el.className = 'toast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
   el.textContent = msg;
-  document.body.appendChild(el);
-  setTimeout(()=>el.remove(), 2800);
+  el.dataset.tone = tone || '';
+  el.classList.remove('is-out');
+  el.style.animation = 'none'; void el.offsetHeight; el.style.animation = '';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.add('is-out'), Math.max(2800, msg.length * 55));
+}
+
+function setSync(state){
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.dataset.state = state;
+  const label = el.querySelector('.sync-label');
+  if (state === 'syncing') label.textContent = 'Syncing…';
+  else if (state === 'error') label.textContent = 'Offline';
+  else {
+    const d = new Date();
+    label.textContent = 'Synced ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+}
+
+function setBusy(btn, busy, busyText){
+  if (!btn) return;
+  if (busy){
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = busyText || 'Working…';
+  } else {
+    btn.disabled = false;
+    if (btn.dataset.label) btn.textContent = btn.dataset.label;
+  }
 }
 
 /* ---------- SHEETDB LAYER ---------- */
@@ -132,13 +177,21 @@ async function deleteAllTickets(){
 }
 
 async function refreshData(showToast){
+  setSync('syncing');
   try {
-    tickets = await fetchTickets();
-    renderAll();
-    if (showToast) toast('Data refreshed.');
+    const next = await fetchTickets();
+    const sig = JSON.stringify(next);
+    const changed = sig !== lastSig || !hasLoaded;
+    tickets = next; lastSig = sig; hasLoaded = true;
+    // Skip re-rendering when nothing changed, so background polling never
+    // steals focus, closes open dropdowns, or resets scroll positions.
+    if (changed || showToast) renderAll();
+    setSync('ok');
+    if (showToast) toast(changed ? 'Data refreshed.' : 'Already up to date.');
   } catch (e) {
     console.error(e);
-    if (showToast) toast('Could not refresh — check your connection.');
+    setSync('error');
+    if (showToast) toast('Could not refresh — check your connection.', 'error');
   }
 }
 
@@ -148,13 +201,14 @@ async function resetDemoData(){
   try {
     await deleteAllTickets();
     tickets = [];
+    lastSig = '';
     activeTicketId = null;
-    draft = { category:'', intent:'', cohort:'BSIS', location:'Room 1', desc:'', metadataStripped:false, fileName:'' };
+    draft = freshDraft();
     goRoleHome();
     toast('All shared data cleared.');
   } catch (e) {
     console.error(e);
-    toast('Could not reset data — check your connection.');
+    toast('Could not reset data — check your connection.', 'error');
   }
 }
 
@@ -230,7 +284,12 @@ function updateRoleChrome(){
 }
 
 const TAB_FOR_VIEW = { wf01:'wf01', wf02:'report', wf03:'report', wf04:'wf04', wf05:'wf05' };
-function go(view){
+const VIEW_HASH  = { wf01:'home', wf02:'report', wf03:'details', wf04:'ticket', wf05:'dashboard' };
+const HASH_VIEW  = Object.fromEntries(Object.entries(VIEW_HASH).map(([k,v])=>[v,k]));
+const VIEW_TITLE = { wf01:'Home', wf02:'Make a report (1 of 2)', wf03:'Make a report (2 of 2)', wf04:'My report', wf05:'Staff dashboard' };
+
+function go(view, opts){
+  opts = opts || {};
   const isStudent = currentRole === 'student';
   const isGad = currentRole === 'gad';
   const isAdmin = currentRole === 'admin';
@@ -238,15 +297,31 @@ function go(view){
   if ((isGad || isAdmin) && (view === 'wf01' || view === 'wf02' || view === 'wf03')) view = 'wf05';
   if (isAdmin && view === 'wf04') view = 'wf05';
   if (isGad && view === 'wf04' && !activeTicketId) view = 'wf05';
+  // Step 2 needs step 1 to be complete (e.g. when arriving via the back button)
+  if (view === 'wf03' && (!draft.category || !draft.intent)) view = 'wf02';
+  if (!VIEW_HASH[view]) view = 'wf01';
+
+  const prevView = currentView;
   currentView = view;
+  if (view !== 'wf04') justSubmittedId = null;
+
   document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
   const target = document.getElementById('view-'+view);
   if (target) target.classList.remove('hidden');
-  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('is-active'));
+  document.querySelectorAll('.nav-tab').forEach(b=>{ b.classList.remove('is-active'); b.removeAttribute('aria-current'); });
   const tabId = TAB_FOR_VIEW[view] || 'wf01';
   const tabBtn = document.getElementById('tab-'+tabId);
-  if (tabBtn) tabBtn.classList.add('is-active');
-  window.scrollTo({ top:0, behavior:'smooth' });
+  if (tabBtn){ tabBtn.classList.add('is-active'); tabBtn.setAttribute('aria-current', 'page'); }
+  document.title = VIEW_TITLE[view] + ' – SafeTrack';
+
+  // Browser back/forward support. Only the view name goes in the URL — never a ticket code.
+  const hash = '#' + VIEW_HASH[view];
+  if (location.hash !== hash){
+    if (opts.fromHistory || opts.replace || prevView === view) history.replaceState({ view }, '', hash);
+    else history.pushState({ view }, '', hash);
+  }
+
+  if (!opts.keepScroll) window.scrollTo({ top:0, behavior:'smooth' });
   renderAll();
   // Refresh on entering views that display shared data
   if (view === 'wf04' || view === 'wf05') refreshData(false);
@@ -279,15 +354,49 @@ function gotoStep2(){
   draft.intent = checked ? checked.value : '';
   draft.cohort = document.getElementById('w2Cohort').value;
   draft.location = document.getElementById('w2Location').value;
-  if (!draft.category){ toast('Please select the type of incident.'); return; }
-  if (!draft.intent){ toast('Please tell us how the behavior seemed to you.'); return; }
+  if (!draft.category){
+    toast('Please select the type of incident.', 'error');
+    flagField('w2Category');
+    return;
+  }
+  if (!draft.intent){
+    toast('Please tell us how the behavior seemed to you.', 'error');
+    flagField('intentGrid');
+    return;
+  }
   go('wf03');
+}
+function flagField(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('is-invalid');
+  el.scrollIntoView({ behavior:'smooth', block:'center' });
+  const focusable = el.matches('select,input,textarea') ? el : el.querySelector('input');
+  if (focusable) focusable.focus({ preventScroll:true });
+}
+function clearFlag(id){
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('is-invalid');
 }
 
 /* ---------- WF03 ---------- */
+function onDescInput(el){
+  draft.desc = el.value;
+  clearFlag('w3Desc');
+  updateDescCount();
+}
+function updateDescCount(){
+  const el = document.getElementById('w3Count');
+  if (!el) return;
+  const n = (draft.desc || '').trim().length;
+  el.textContent = n === 1 ? '1 character' : n + ' characters';
+}
 function renderWF03(){
   const ta = document.getElementById('w3Desc');
   if (ta) ta.value = draft.desc || '';
+  updateDescCount();
+  const btn = document.getElementById('submitBtn');
+  if (btn && !submitting) setBusy(btn, false);
   const exif = document.getElementById('exifStatus');
   if (exif){
     if (draft.metadataStripped && draft.fileName){
@@ -317,10 +426,15 @@ function handleFileChosen(event){
 }
 
 /* ---------- SUBMISSION ---------- */
-async function submitReport(evt){
+async function submitReport(){
+  if (submitting) return;
   draft.desc = (document.getElementById('w3Desc').value || '').trim();
-  if (!draft.category){ toast('Please choose a category first.'); go('wf02'); return; }
-  if (!draft.desc){ toast('Please describe what happened before submitting.'); return; }
+  if (!draft.category){ toast('Please choose a category first.', 'error'); go('wf02'); return; }
+  if (!draft.desc){
+    toast('Please describe what happened before submitting.', 'error');
+    flagField('w3Desc');
+    return;
+  }
 
   const ticket = {
     id: newTicketId(),
@@ -336,24 +450,31 @@ async function submitReport(evt){
     chat: []
   };
 
-  const submitBtn = evt && evt.target;
-  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
+  const submitBtn = document.getElementById('submitBtn');
+  submitting = true;
+  setBusy(submitBtn, true, 'Submitting…');
 
   try {
     await createTicket(ticket);
     sendToExternalFunnel(ticket);
-    tickets = await fetchTickets();
+    try { tickets = await fetchTickets(); }
+    catch (e) { tickets = tickets.filter(t => t.id !== ticket.id).concat([ticket]); }
     activeTicketId = ticket.id;
-    draft = { category:'', intent:'', cohort:'BSIS', location:'Room 1', desc:'', metadataStripped:false, fileName:'' };
+    justSubmittedId = ticket.id;
+    codeSaved = false;
+    draft = freshDraft();
     const ta = document.getElementById('w3Desc'); if (ta) ta.value = '';
     const fi = document.getElementById('w3File'); if (fi) fi.value = '';
     const exif = document.getElementById('exifStatus'); if (exif){ exif.classList.add('hidden'); exif.innerHTML = ''; }
-    go('wf04');
+    submitting = false;
+    setBusy(submitBtn, false);   // was left disabled after a successful submit
+    go('wf04', { replace:true });
     toast('Report submitted. Your ticket code is ' + ticket.id);
   } catch (e) {
     console.error(e);
-    toast('Submission failed — check your connection and try again.');
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Confidential Report'; }
+    submitting = false;
+    setBusy(submitBtn, false);
+    toast('Submission failed — check your connection and try again.', 'error');
   }
 }
 
@@ -378,17 +499,30 @@ async function sendToExternalFunnel(ticket){
 /* ---------- WF04 ---------- */
 async function lookupTicket(code){
   if (currentRole !== 'student'){ toast('Ticket lookup is a student feature.'); goRoleHome(); return; }
-  const clean = String(code || '').trim().toUpperCase();
-  if (!clean){ toast('Please enter a ticket code.'); return; }
-  try { tickets = await fetchTickets(); } catch(e){ /* fall back to in-memory */ }
+  let clean = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (/^\d{4}$/.test(clean)) clean = 'SAFE-' + clean;          // "1234" → "SAFE-1234"
+  else if (/^SAFE\d{4}$/.test(clean)) clean = 'SAFE-' + clean.slice(4);
+  if (!clean){ toast('Please enter a ticket code.', 'error'); return; }
+  let offline = false;
+  try { tickets = await fetchTickets(); } catch(e){ offline = true; /* fall back to in-memory */ }
   const found = tickets.find(t => t.id === clean);
-  if (!found){ toast('Ticket not found. Please check your code.'); return; }
+  if (!found){
+    toast(offline
+      ? 'Could not reach the database — check your connection and try again.'
+      : 'Ticket not found. Please check your code.', 'error');
+    return;
+  }
   activeTicketId = found.id;
   go('wf04');
 }
+async function lookupFrom(inputId, btn){
+  const input = document.getElementById(inputId);
+  setBusy(btn, true, 'Opening…');
+  try { await lookupTicket(input ? input.value : ''); }
+  finally { setBusy(btn, false); }
+}
 function lookupFromWf04(){
-  const input = document.getElementById('wf04LookupInput');
-  lookupTicket(input ? input.value : '');
+  lookupFrom('wf04LookupInput', document.getElementById('wf04LookupBtn'));
 }
 function statusBadgeClass(status){
   if (status === 'Resolved') return 'badge-mint';
@@ -399,24 +533,33 @@ function renderWF04(){
   const body = document.getElementById('wf04Body');
   if (!body) return;
 
+  // Preserve the in-progress message, focus, caret and scroll across re-renders
   const oldInput = document.getElementById('chatInput');
   const pendingText = oldInput ? oldInput.value : '';
+  const hadFocus = !!oldInput && document.activeElement === oldInput;
+  const caret = hadFocus ? oldInput.selectionStart : null;
+  const oldScroll = document.querySelector('.chat-scroll');
+  const wasAtBottom = !oldScroll || (oldScroll.scrollHeight - oldScroll.scrollTop - oldScroll.clientHeight < 40);
+  const oldScrollTop = oldScroll ? oldScroll.scrollTop : 0;
 
   const t = tickets.find(x => x.id === activeTicketId);
 
   if (!t){
     if (currentRole !== 'student'){ body.innerHTML = ''; go('wf05'); return; }
     body.innerHTML = `
-      <div class="card state">
-        <div class="state-icon" style="background:rgba(148,0,255,.16);border-color:rgba(148,0,255,.45);color:#d4a3ff;">?</div>
-        <h2>Open a case</h2>
-        <p>Enter the private ticket code you received when you filed your report.</p>
-        <div class="lookup-row" style="width:100%;max-width:460px;margin-top:8px;">
-          <input id="wf04LookupInput" type="text" placeholder="SAFE-XXXX"
-            onkeydown="if(event.key==='Enter'){lookupFromWf04();}" class="input" />
-          <button onclick="lookupFromWf04()" class="btn btn-primary">Open</button>
+      <div class="panel state">
+        <h1 class="page-title">Open your report</h1>
+        <p>Enter the code you received when you submitted. You can type just the four digits.</p>
+        <div class="lookup-row">
+          <input id="wf04LookupInput" type="text" placeholder="SAFE-0000" aria-label="Report code"
+            autocomplete="off" autocapitalize="characters" spellcheck="false"
+            onkeydown="if(event.key==='Enter'){lookupFromWf04();}" class="input input-code" />
+          <button id="wf04LookupBtn" onclick="lookupFromWf04()" class="btn btn-primary">Open report</button>
         </div>
+        <p class="hint">Codes can't be recovered if lost. If you no longer have yours, you can always make a new report.</p>
       </div>`;
+    const li = document.getElementById('wf04LookupInput');
+    if (li && window.matchMedia('(hover:hover)').matches) li.focus({ preventScroll:true });
     return;
   }
 
@@ -426,81 +569,121 @@ function renderWF04(){
 
   const timeline = steps.map((s,i)=>{
     const done = i <= activeIdx;
-    return `<div class="tl-step ${done?'done':''}"><span class="tl-dot">${i+1}</span><span class="tl-label">${s}</span></div>`;
-  }).join('<span class="tl-line"></span>');
+    const current = i === activeIdx;
+    const step = `<div class="tl-step ${done?'done':''} ${current?'current':''}"${current?' aria-current="step"':''}><span class="tl-dot">${done && !current ? '✓' : i+1}</span><span class="tl-label">${s}</span></div>`;
+    const line = i < steps.length-1 ? `<span class="tl-line ${i < activeIdx ? 'done' : ''}"></span>` : '';
+    return step + line;
+  }).join('');
+
+  const showSaveCallout = !isGadCaseView && justSubmittedId === t.id;
+  const saveCallout = showSaveCallout ? `
+    <div class="callout ${codeSaved ? 'is-saved' : ''}" role="alert">
+      <div class="callout-icon">${codeSaved ? '✓' : '!'}</div>
+      <div class="callout-body">
+        <strong>${codeSaved ? 'Code saved.' : 'Save your code before you leave this page.'}</strong>
+        <span>${codeSaved
+          ? 'Use it under My report to check the status and read replies from the committee.'
+          : 'It is the only way back into this report. There is no account, so a lost code can\'t be recovered. Copy it or download the receipt.'}</span>
+      </div>
+    </div>` : '';
 
   const chatHtml = (t.chat && t.chat.length)
     ? t.chat.map(m=>`
         <div class="msg ${m.from==='gad'?'msg-gad':'msg-me'}">
           <div class="bubble">
-            <span class="msg-meta">${m.from==='gad'?'GAD Coordinator':(isGadCaseView?'Student':'You')} · ${esc(m.at)}</span>
+            <span class="msg-meta"><strong>${m.from==='gad'?'GAD Coordinator':(isGadCaseView?'Student':'You')}</strong><time>${esc(m.at)}</time></span>
             <span class="msg-text">${esc(m.text)}</span>
           </div>
         </div>`).join('')
-    : `<p class="chat-empty">No messages yet. The GAD committee will reply here.</p>`;
+    : `<p class="chat-empty">${isGadCaseView
+        ? 'No messages yet. Anything you send appears to the student under this code.'
+        : 'No messages yet. The GAD Committee will reply here — check back with your code.'}</p>`;
 
-  const chatPlaceholder = isGadCaseView ? 'Reply as GAD Coordinator…' : 'Write a message to the GAD committee…';
+  const chatPlaceholder = isGadCaseView ? 'Reply as GAD Coordinator' : 'Write to the GAD Committee';
 
   body.innerHTML = `
-    <div class="card">
-      <div class="case-head-top">
-        <div>
-          <span class="eyebrow">${isGadCaseView ? 'Case Detail' : 'Anonymous Case Receipt'}</span>
-          <span class="ticket-code">${esc(t.id)}</span>
-          <span class="ticket-date">Filed ${esc(t.date)}</span>
+    ${saveCallout}
+    <div class="case-layout">
+      <aside class="case-side">
+        <div class="stub stub-case">
+          <div class="stub-top"><span>${isGadCaseView ? 'Case code' : 'Your report code'}</span></div>
+          <p class="stub-code">${esc(t.id)}</p>
+          <div class="stub-perf" aria-hidden="true"></div>
+          <div class="stub-foot">
+            <span>Filed ${esc(t.date)}</span>
+            ${isGadCaseView ? '' : `
+              <div class="stub-actions">
+                <button onclick="copyActiveCode()" class="btn btn-primary btn-xs">Copy code</button>
+                <button onclick="downloadReceipt()" class="btn btn-secondary btn-xs">Download receipt</button>
+              </div>
+            `}
+          </div>
         </div>
-        <div class="case-head-actions">
-          <button onclick="refreshData(true)" class="btn btn-glass btn-xs">↻ Refresh</button>
-          <span class="badge ${statusBadgeClass(t.status)}">${esc(t.status)}</span>
-        </div>
-      </div>
-      <div class="timeline">${timeline}</div>
-      ${isGadCaseView ? '' : `
-        <div class="row-2" style="margin-top:18px;">
-          <button onclick="copyActiveCode()" class="btn btn-glass btn-xs">Copy Code</button>
-          <button onclick="downloadReceipt()" class="btn btn-glass btn-xs">Download Receipt (.txt)</button>
-        </div>
-      `}
-    </div>
+        ${isGadCaseView ? `<button onclick="go('wf05')" class="btn btn-text btn-back">Back to dashboard</button>` : ''}
+      </aside>
 
-    <div class="card stack-sm">
-      <h3 class="card-title" style="font-size:15px;padding-bottom:14px;border-bottom:1px solid var(--stroke);">Case details</h3>
-      <div class="detail-grid">
-        <div class="detail-item"><span>Section</span><span>${esc(t.cohort)}</span></div>
-        <div class="detail-item"><span>Category</span><span>${esc(t.category)}</span></div>
-        <div class="detail-item"><span>Perceived Intent</span><span>${esc(t.intent)}</span></div>
-        <div class="detail-item"><span>Location</span><span>${esc(t.location)}</span></div>
-        <div class="detail-item"><span>Metadata Stripped</span><span>${t.metadataStripped ? 'Yes' : 'No'}</span></div>
-        <div class="detail-item"><span>Messages</span><span>${(t.chat||[]).length}</span></div>
-      </div>
-      <div class="field" style="margin-top:6px;">
-        <span class="field-label">${isGadCaseView ? 'Student narrative' : 'Your narrative'}</span>
-        <p class="narrative">${esc(t.desc)}</p>
-      </div>
-      <div class="field">
-        <span class="field-label">Coordinator remarks</span>
-        <p class="narrative">${esc(t.remarks || 'No remarks yet.')}</p>
-      </div>
-    </div>
+      <div class="case-main">
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Status</h2>
+            </div>
+            <div class="case-head-actions">
+              <span class="badge ${statusBadgeClass(t.status)}">${esc(t.status)}</span>
+              <button onclick="refreshData(true)" class="btn btn-secondary btn-xs">Refresh</button>
+            </div>
+          </div>
+          <div class="timeline">${timeline}</div>
+          <div class="remarks">
+            <span class="field-label">Coordinator remarks</span>
+            <p>${esc(t.remarks || 'No remarks yet.')}</p>
+          </div>
+        </section>
 
-    <div class="card stack-sm">
-      <div>
-        <h3 class="card-title" style="font-size:15px;">Two-way anonymous chat</h3>
-        <p class="card-sub">Neither side sees the other's identity — only the case code connects you.</p>
-      </div>
-      <div class="chat-scroll scroll-thin">${chatHtml}</div>
-      <div class="chat-bar">
-        <input id="chatInput" type="text" placeholder="${chatPlaceholder}"
-          onkeydown="if(event.key==='Enter'){sendChat();}" class="input" />
-        <button onclick="sendChat()" class="btn btn-primary">Send</button>
+        <section class="panel">
+          <div class="panel-head"><h2 class="panel-title">Report details</h2></div>
+          <dl class="detail-grid">
+            <div class="detail-item"><dt>Program</dt><dd>${esc(t.cohort)}</dd></div>
+            <div class="detail-item"><dt>Location</dt><dd>${esc(t.location)}</dd></div>
+            <div class="detail-item"><dt>Perceived intent</dt><dd>${esc(t.intent)}</dd></div>
+            <div class="detail-item detail-wide"><dt>Category</dt><dd>${esc(t.category)}</dd></div>
+            <div class="detail-item"><dt>Attachment metadata removed</dt><dd>${t.metadataStripped ? 'Yes' : 'No attachment'}</dd></div>
+          </dl>
+          <div class="field">
+            <span class="field-label">${isGadCaseView ? 'Student\'s account' : 'Your account'}</span>
+            <p class="narrative">${esc(t.desc)}</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 class="panel-title">Messages</h2>
+              <p class="panel-sub">${isGadCaseView
+                ? 'The student sees your replies but never learns who you are, and you never learn who they are.'
+                : 'The committee can reply here without knowing who you are. Only this code connects you.'}</p>
+            </div>
+          </div>
+          <div class="chat-scroll" aria-live="polite">${chatHtml}</div>
+          <div class="chat-bar">
+            <input id="chatInput" type="text" placeholder="${chatPlaceholder}" aria-label="Message"
+              autocomplete="off" maxlength="2000"
+              onkeydown="if(event.key==='Enter' && !event.isComposing){event.preventDefault();sendChat();}" class="input" />
+            <button id="chatSendBtn" onclick="sendChat()" class="btn btn-primary">Send</button>
+          </div>
+        </section>
       </div>
     </div>
   `;
 
   const newInput = document.getElementById('chatInput');
   if (newInput && pendingText) newInput.value = pendingText;
+  if (newInput && hadFocus){
+    newInput.focus({ preventScroll:true });
+    if (caret !== null) try { newInput.setSelectionRange(caret, caret); } catch(e){}
+  }
   const chatScroll = document.querySelector('.chat-scroll');
-  if (chatScroll) chatScroll.scrollTop = chatScroll.scrollHeight;
+  if (chatScroll) chatScroll.scrollTop = wasAtBottom ? chatScroll.scrollHeight : oldScrollTop;
 }
 
 async function sendChat(){
@@ -513,7 +696,9 @@ async function sendChat(){
   const from = currentRole === 'gad' ? 'gad' : 'student';
   const newMsg = { from, text, at: nowStamp() };
 
+  if (input && input.disabled) return;   // a send is already in flight
   if (input) input.disabled = true;
+  setBusy(document.getElementById('chatSendBtn'), true, 'Sending…');
 
   try {
     const res = await fetch(`${SHEETDB_URL}/id/${encodeURIComponent(t.id)}`, { cache: 'no-store' });
@@ -529,13 +714,24 @@ async function sendChat(){
     await updateTicket(t.id, { chat: currentChat });
     t.chat = currentChat;
     if (input) input.value = '';
+    const live = document.getElementById('chatInput');   // may differ if a poll re-rendered mid-send
+    if (live) live.value = '';
     renderWF04();
+    const fresh = document.getElementById('chatInput');
+    if (fresh) fresh.focus({ preventScroll:true });
     toast('Message sent.');
   } catch (e) {
     console.error(e);
-    toast('Could not send message — check your connection.');
-  } finally {
-    if (input) input.disabled = false;
+    toast('Could not send message — your text is still in the box. Check your connection.', 'error');
+    if (input){ input.disabled = false; input.focus(); }
+    setBusy(document.getElementById('chatSendBtn'), false);
+  }
+}
+
+function markCodeSaved(){
+  if (justSubmittedId && !codeSaved){
+    codeSaved = true;
+    if (currentView === 'wf04') renderWF04();
   }
 }
 
@@ -544,9 +740,9 @@ function copyActiveCode(){
   if (!t) return;
   if (navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(t.id)
-      .then(()=>toast('Ticket code copied: ' + t.id))
-      .catch(()=>toast('Copy failed — your code is ' + t.id));
-  } else { toast('Your ticket code is ' + t.id); }
+      .then(()=>{ toast('Ticket code copied: ' + t.id); markCodeSaved(); })
+      .catch(()=>toast('Copy failed — write down your code: ' + t.id, 'error'));
+  } else { toast('Copy unavailable — write down your code: ' + t.id); }
 }
 
 function downloadReceipt(){
@@ -588,6 +784,7 @@ function downloadReceipt(){
   ];
   downloadFile('SafeTrack_Receipt_' + t.id + '.txt', lines.join('\r\n'), 'text/plain;charset=utf-8;');
   toast('Receipt downloaded: SafeTrack_Receipt_' + t.id + '.txt');
+  markCodeSaved();
 }
 
 /* ---------- FILE ---------- */
@@ -655,8 +852,8 @@ function renderWF05(){
   const isAdmin = currentRole === 'admin';
 
   document.getElementById('wf05RoleNote').textContent = isGad
-    ? 'Full access: Kanban workflow, individual case triage, status transitions, CSV import and export.'
-    : 'Aggregated view only. Individual cases are hidden by the Privacy Shield, and sections with fewer than 5 reports are suppressed.';
+    ? 'Signed in as GAD Coordinator. You can open cases, reply to students, change status, and import or export CSV.'
+    : 'Signed in as College Admin. You see totals only; individual cases stay hidden.';
 
   const exportBtn = document.getElementById('exportCsvBtn');
   exportBtn.textContent = isGad ? 'Export Full Triage CSV' : 'Export Aggregated Equity CSV';
@@ -666,15 +863,18 @@ function renderWF05(){
   document.getElementById('wf05TableSection').classList.toggle('hidden', !isGad);
 
   const stats = computeStats();
+  const L = (v)=> hasLoaded ? v : '—';
   document.getElementById('kpiGrid').innerHTML = [
-    kpiCard('Total Reports', stats.total, 'All anonymous submissions', 'tone-lime'),
-    kpiCard('Open Cases', stats.open, 'New + In Review', 'tone-amber'),
-    kpiCard('Resolved', stats.resolved, 'Closed by the GAD committee', 'tone-mint'),
-    kpiCard('Unawareness Index', stats.unawarePct.toFixed(1)+'%', 'Reports perceived as unintentional', 'tone-violet')
+    kpiCard('Reports', L(stats.total), 'All submissions to date', 'tone-lime'),
+    kpiCard('Open', L(stats.open), 'New or in review', 'tone-amber'),
+    kpiCard('Resolved', L(stats.resolved), 'Closed by the committee', 'tone-mint'),
+    kpiCard('Unawareness Index', L(stats.unawarePct.toFixed(1)+'%'), 'Seemed unintentional', 'tone-violet')
   ].join('');
+  document.getElementById('wf05Content').classList.toggle('is-loading', !hasLoaded);
 
-  document.getElementById('unawareSummary').textContent =
-    stats.unawarePct.toFixed(1)+'% overall ('+stats.unaware+' of '+stats.total+')';
+  document.getElementById('unawareSummary').textContent = hasLoaded
+    ? stats.unawarePct.toFixed(1)+'% overall, '+stats.unaware+' of '+stats.total
+    : 'Loading…';
 
   document.getElementById('unawareBars').innerHTML = CATEGORIES.map(cat=>{
     const items = tickets.filter(t=>t.category===cat);
@@ -682,13 +882,13 @@ function renderWF05(){
     const u = items.filter(t=>t.intent==='Unaware').length;
     const pct = n ? Math.round((u/n)*100) : 0;
     const masked = isAdmin && n>0 && n<5;
-    const label = masked ? 'Suppressed (&lt;5)' : (n===0?'No reports':u+' / '+n+' reports');
+    const label = masked ? 'Hidden (fewer than 5)' : (n===0?'No reports':u+' of '+n);
     const width = masked ? 0 : pct;
     return `
       <div class="bar-row">
         <div class="bar-head">
           <span class="bar-name">${esc(cat)}</span>
-          <span class="bar-val">${label}${masked?'':(n?' · '+pct+'%':'')}</span>
+          <span class="bar-val">${label}${masked?'':(n?'<b>'+pct+'%</b>':'')}</span>
         </div>
         <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
       </div>`;
@@ -702,24 +902,25 @@ function renderWF05(){
     const r = items.filter(t=>t.status==='Resolved').length;
     const masked = n<5;
     const cell = (val)=> masked
-      ? `<span style="color:var(--ink-3);font-style:italic;">Suppressed (&lt;5)</span>`
+      ? `<span class="suppressed">Hidden</span>`
       : esc(val);
     return `
       <tr>
-        <td style="font-weight:700;color:var(--ink);">${esc(cohort)}</td>
-        <td>${cell(n)}</td>
-        <td>${cell(u)}</td>
-        <td>${cell(r)}</td>
-        <td>${masked ? '<span style="color:var(--ink-3);font-style:italic;">Suppressed (&lt;5)</span>' : esc(Math.round((u/n)*100)+'%')}</td>
+        <td class="td-strong">${esc(cohort)}</td>
+        <td class="num">${cell(n)}</td>
+        <td class="num">${cell(u)}</td>
+        <td class="num">${cell(r)}</td>
+        <td class="num">${masked ? '<span class="suppressed">Hidden</span>' : esc(Math.round((u/n)*100)+'%')}</td>
       </tr>`;
   }).filter(Boolean).join('');
 
   document.getElementById('cohortTableBody').innerHTML = cohortRows ||
-    `<tr><td colspan="5" class="td-empty">No reports logged yet.</td></tr>`;
+    `<tr><td colspan="5" class="td-empty">${hasLoaded ? 'No reports logged yet.' : 'Loading…'}</td></tr>`;
 
   if (isGad){
+    const sorted = newestFirst(tickets);
     document.getElementById('kanbanBoard').innerHTML = ['New','In Review','Resolved'].map(status=>{
-      const items = tickets.filter(t=>t.status===status);
+      const items = sorted.filter(t=>t.status===status);
       const cls = status==='New' ? 'k-new' : status==='In Review' ? 'k-review' : 'k-done';
       return `
         <div class="kcol ${cls}">
@@ -727,46 +928,76 @@ function renderWF05(){
             <span class="kcol-name">${status}</span>
             <span class="kcol-count">${items.length}</span>
           </div>
-          ${items.length ? items.map(kanbanCard).join('') : '<p class="kcol-empty">No cases</p>'}
+          ${items.length ? items.map(kanbanCard).join('') : '<p class="kcol-empty">Nothing here</p>'}
         </div>`;
     }).join('');
 
     document.getElementById('logCount').textContent = tickets.length;
+    renderTriageTable();
+  }
+}
+function newestFirst(list){
+  // Dates are "YYYY-MM-DD HH:MM" strings, so a string compare sorts chronologically
+  return list.slice().sort((a,b)=> String(b.date).localeCompare(String(a.date)));
+}
+function setTriageFilter(key, value){
+  triageFilter[key] = value;
+  renderTriageTable();
+}
+function renderTriageTable(){
+  const body = document.getElementById('triageTableBody');
+  if (!body || currentRole !== 'gad') return;
+  const q = triageFilter.q.trim().toLowerCase();
+  const rows = newestFirst(tickets).filter(t=>{
+    if (triageFilter.status && t.status !== triageFilter.status) return false;
+    if (!q) return true;
+    return [t.id, t.cohort, t.category, t.intent, t.location, t.date, t.desc]
+      .some(v => String(v||'').toLowerCase().includes(q));
+  });
+  const countEl = document.getElementById('triageShown');
+  if (countEl) countEl.textContent = (q || triageFilter.status) ? rows.length + ' shown' : '';
 
-    document.getElementById('triageTableBody').innerHTML = tickets.map(t=>`
-      <tr>
+  body.innerHTML = rows.map(t=>{
+    const busy = busyIds.has(t.id);
+    const unread = (t.chat||[]).length && (t.chat[t.chat.length-1]||{}).from !== 'gad';
+    return `
+      <tr${busy?' class="is-busy"':''}>
         <td class="td-id">${esc(t.id)}</td>
-        <td class="td-nowrap" style="color:var(--ink-3);">${esc(t.date)}</td>
-        <td style="font-weight:500;color:var(--ink);">${esc(t.cohort)}</td>
+        <td class="td-nowrap td-muted">${esc(t.date)}</td>
+        <td class="td-strong">${esc(t.cohort)}</td>
         <td>${esc(t.category)}</td>
-        <td style="color:var(--ink-3);">${esc(t.intent)}</td>
+        <td class="td-muted">${esc(t.intent)}</td>
         <td>
-          <select onchange="setStatus('${esc(t.id)}', this.value)" class="sel sel-mini">
+          <select onchange="setStatus('${esc(t.id)}', this.value)" class="sel sel-mini" aria-label="Status for ${esc(t.id)}"${busy?' disabled':''}>
             ${STATUSES.map(s => `<option value="${s}"${s===t.status?' selected':''}>${s}</option>`).join('')}
           </select>
         </td>
-        <td style="color:var(--ink-3);">${(t.chat||[]).length}</td>
-        <td><button onclick="openCase('${esc(t.id)}')" class="link-btn">View</button></td>
-      </tr>
-    `).join('') || `<tr><td colspan="8" class="td-empty">No reports logged yet.</td></tr>`;
-  }
+        <td class="num td-muted">${(t.chat||[]).length}${unread?' <span class="dot-new dot-only" title="Awaiting your reply" aria-label="Needs reply"></span>':''}</td>
+        <td class="td-action"><button onclick="openCase('${esc(t.id)}')" class="link-btn">Open</button></td>
+      </tr>`;
+  }).join('') || `<tr><td colspan="8" class="td-empty">${
+    !hasLoaded ? 'Loading…' : tickets.length ? 'No cases match this filter.' : 'No reports logged yet.'
+  }</td></tr>`;
 }
 function kanbanCard(t){
+  const busy = busyIds.has(t.id);
   const buttons = (()=>{
     const make = (label, next, cls)=>
-      `<button onclick="setStatus('${esc(t.id)}','${next}')" class="kbtn ${cls}">${label}</button>`;
+      `<button onclick="setStatus('${esc(t.id)}','${next}')" class="kbtn ${cls}"${busy?' disabled':''}>${label}</button>`;
     if (t.status === 'New') return make('Start Review','In Review','kbtn-amber') + make('Resolve','Resolved','kbtn-mint');
     if (t.status === 'In Review') return make('Resolve','Resolved','kbtn-mint') + make('Reopen','New','');
     return make('Reopen','New','');
   })();
+  const chatN = (t.chat||[]).length;
+  const unread = chatN && (t.chat[chatN-1]||{}).from !== 'gad';
   return `
-    <div class="kcard">
+    <div class="kcard${busy?' is-busy':''}">
       <div class="kcard-top">
         <button onclick="openCase('${esc(t.id)}')" class="kcard-id">${esc(t.id)}</button>
         <span class="kcard-date">${esc((t.date||'').slice(5,10))}</span>
       </div>
       <p class="kcard-cat">${esc(t.category)}</p>
-      <p class="kcard-meta">${esc(t.cohort)} · ${esc(t.intent)}</p>
+      <p class="kcard-meta"><span>${esc(t.cohort)}</span><span>${esc(t.intent)}</span>${chatN ? `<span>${chatN} message${chatN>1?'s':''}</span>` : ''}${unread ? '<span class="dot-new" title="Awaiting your reply">Needs reply</span>' : ''}</p>
       <div class="kcard-actions">${buttons}</div>
     </div>`;
 }
@@ -774,15 +1005,20 @@ async function setStatus(id, status){
   const t = tickets.find(x=>x.id===id);
   if (!t) return;
   if (!STATUSES.includes(status)) return;
+  if (busyIds.has(id) || t.status === status) return;
+  busyIds.add(id);
+  renderWF05();
   try {
     await updateTicket(id, { status });
     t.status = status;
-    renderWF05();
-    if (activeTicketId === id && currentView === 'wf04') renderWF04();
     toast(id + ' moved to "' + status + '".');
   } catch (e) {
     console.error(e);
-    toast('Could not update status — check your connection.');
+    toast('Could not update status — check your connection.', 'error');
+  } finally {
+    busyIds.delete(id);
+    renderWF05();   // also snaps the dropdown back if the update failed
+    if (activeTicketId === id && currentView === 'wf04') renderWF04();
   }
 }
 function openCase(id){
@@ -852,12 +1088,15 @@ function onCsvFileChosen(event){
   if (!file) return;
   if (currentRole !== 'gad'){ toast('CSV import is restricted to GAD Coordinators.'); event.target.value=''; return; }
   const reader = new FileReader();
+  const btn = document.getElementById('importCsvBtn');
+  setBusy(btn, true, 'Importing…');
   reader.onload = async (e)=>{
     try { await importCsvText(String(e.target.result||'')); }
-    catch(err){ console.error(err); toast('Could not parse that CSV file.'); }
+    catch(err){ console.error(err); toast('Could not parse that CSV file.', 'error'); }
+    finally { setBusy(btn, false); }
     event.target.value = '';
   };
-  reader.onerror = ()=>{ toast('Could not read that file.'); event.target.value=''; };
+  reader.onerror = ()=>{ setBusy(btn, false); toast('Could not read that file.', 'error'); event.target.value=''; };
   reader.readAsText(file);
 }
 async function importCsvText(text){
@@ -943,18 +1182,48 @@ async function init(){
   document.body.classList.toggle('show-defense', defenseOn);
 
   updateRoleChrome();
-  go('wf01');
+  // Land on the view in the URL (role gating in go() still applies)
+  go(HASH_VIEW[location.hash.slice(1)] || 'wf01', { replace:true });
 
+  // Browser back / forward
+  window.addEventListener('popstate', () => {
+    go(HASH_VIEW[location.hash.slice(1)] || 'wf01', { fromHistory:true });
+  });
+
+  // Modal: Escape anywhere or a click on the backdrop cancels
+  const modal = document.getElementById('authModal');
+  modal.addEventListener('mousedown', (e) => { if (e.target === modal) cancelPassword(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) cancelPassword();
+  });
+
+  // Warn before losing an unsent report or an unsaved ticket code
+  window.addEventListener('beforeunload', (e) => {
+    const unsentDraft = (draft.desc || '').trim().length > 0 && !submitting;
+    const unsavedCode = justSubmittedId && !codeSaved;
+    if (unsentDraft || unsavedCode){ e.preventDefault(); e.returnValue = ''; }
+  });
+
+  setSync('syncing');
   try {
     tickets = await fetchTickets();
+    lastSig = JSON.stringify(tickets);
+    hasLoaded = true;
     renderAll();
+    setSync('ok');
   } catch (e) {
     console.warn('Initial fetch failed:', e);
-    toast('Could not reach the shared database. Try refreshing.');
+    setSync('error');
+    toast('Could not reach the shared database. Try refreshing.', 'error');
   }
 
+  // Poll only while the tab is visible; catch up immediately when it returns
   setInterval(() => {
+    if (document.hidden) return;
     if (currentView === 'wf04' || currentView === 'wf05') refreshData(false);
   }, 30000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && (currentView === 'wf04' || currentView === 'wf05')) refreshData(false);
+  });
 }
 init();
