@@ -1,454 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CCSICT SafeTrack — Anonymous Reporting &amp; Support Portal</title>
-<meta name="description" content="Report a gender-related incident at CCSICT without giving your name. No login, no account." />
-<meta name="theme-color" content="#3B1D5A" />
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233B1D5A'/%3E%3Ccircle cx='16' cy='13' r='4.5' fill='%23fff'/%3E%3Cpath d='M13.6 16.5h4.8l1.4 8.5h-7.6z' fill='%23fff'/%3E%3C/svg%3E" />
-
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-
-<link rel="stylesheet" href="styles.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCSICT OpenTech Portal</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<a href="#main" class="skip-link">Skip to content</a>
+    <div class="container">
+        <header>
+            <h1>CCSICT OpenTech</h1>
+            <p>Blind, skill-based technical event registration.</p>
+        </header>
 
-<!-- PROTOTYPE CONTROLS -->
-<div class="proto-bar">
-  <div class="proto-inner">
-    <div class="proto-left">
-      <span class="proto-title">Prototype</span>
-      <label class="proto-field">
-        <span>View as</span>
-        <select id="roleSelect" class="sel sel-sm" onchange="requestRoleSwitch(this.value)">
-          <option value="student">Student (Anonymous)</option>
-          <option value="gad">GAD Coordinator</option>
-          <option value="admin">College Admin</option>
-        </select>
-      </label>
-      <span id="roleBadge" class="pill pill-violet">Student (Anonymous)</span>
-    </div>
+        <section class="form-section">
+            <h2>Apply for an Event</h2>
+            <form id="applicationForm">
+                <div class="form-group">
+                    <label for="student_id">Student ID Number (No Names)</label>
+                    <input type="text" id="student_id" name="student_id" placeholder="e.g., 26-1711" pattern="\d{2}-\d{4}" title="Format: YY-XXXX (e.g., 26-1711)" required>
+                </div>
 
-    <div class="proto-right">
-      <span id="syncStatus" class="sync" data-state="syncing" title="Shared database connection">
-        <span class="sync-dot"></span><span class="sync-label">Connecting…</span>
-      </span>
-      <label class="switch">
-        <input type="checkbox" id="defenseToggle" onchange="toggleDefenseNotes(this.checked)" />
-        <span class="switch-track"><span class="switch-dot"></span></span>
-        <span class="switch-label">Defense notes</span>
-      </label>
-      <button id="resetBtn" onclick="resetDemoData()" class="btn btn-xs btn-danger hidden">Reset all data</button>
-    </div>
-  </div>
-</div>
+                <div class="form-group">
+                    <label for="event_name">Select Technical Event</label>
+                    <select id="event_name" name="event_name" required>
+                        <option value="" disabled selected>Select an event...</option>
+                        <option value="Annual CCSICT Hackathon">Annual CCSICT Hackathon</option>
+                        <option value="Java Coding Competition">Java Coding Competition</option>
+                        <option value="Web Development Challenge">Web Development Challenge</option>
+                    </select>
+                </div>
 
-<!-- HEADER -->
-<header class="topbar">
-  <div class="topbar-inner">
-    <button onclick="goRoleHome()" class="brand" aria-label="SafeTrack home">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 32 32" width="34" height="34"><rect width="32" height="32" rx="7" fill="currentColor"/><circle cx="16" cy="13" r="4.5" fill="#fff"/><path d="M13.6 16.5h4.8l1.4 8.5h-7.6z" fill="#fff"/></svg>
-      </span>
-      <span class="brand-text">
-        <span class="brand-name">SafeTrack</span>
-        <span class="brand-sub">CCSICT Gender and Development Office</span>
-      </span>
-    </button>
+                <div class="form-group">
+                    <label for="target_role">Target Role</label>
+                    <select id="target_role" name="target_role" required>
+                        <option value="" disabled selected>Select your desired role...</option>
+                        <option value="Lead Programmer">Lead Programmer</option>
+                        <option value="Database Architect">Database Architect</option>
+                        <option value="UI/UX Designer">UI/UX Designer</option>
+                        <option value="Documentation / QA">Documentation / QA</option>
+                    </select>
+                </div>
 
-    <nav class="nav" aria-label="Main">
-      <button onclick="go('wf01')" id="tab-wf01" class="nav-tab">Home</button>
-      <button onclick="go('wf02')" id="tab-report" class="nav-tab">Make a report</button>
-      <button onclick="go('wf04')" id="tab-wf04" class="nav-tab">My report</button>
-      <button onclick="go('wf05')" id="tab-wf05" class="nav-tab hidden">Staff dashboard</button>
-    </nav>
-  </div>
-</header>
+                <div class="form-group">
+                    <label for="skills">Technical Skills</label>
+                    <input type="text" id="skills" name="skills" placeholder="e.g., Python, HTML/CSS, Java" required>
+                </div>
 
-<main class="shell" id="main" tabindex="-1">
-
-  <!-- WF01 · HOME -->
-  <section id="view-wf01" class="view hidden">
-    <div class="hero">
-      <div class="hero-inner">
-        <div class="hero-copy">
-          <h1 class="hero-title">Report a gender-related incident without giving your name.</h1>
-          <p class="hero-lede">
-            An uncomfortable joke, being kept off the keyboard in a lab group, being left out of
-            a study group — if it made the classroom feel unequal, the CCSICT GAD Committee wants
-            to know. There is no login and no form asks who you are.
-          </p>
-          <div class="hero-actions">
-            <button onclick="go('wf02')" class="btn btn-light">Make a report</button>
-            <button onclick="const i=document.getElementById('wf01LookupInput');i.scrollIntoView({behavior:'smooth',block:'center'});i.focus({preventScroll:true});" class="btn btn-outline-light">Check a report I already made</button>
-          </div>
-        </div>
-
-        <figure class="stub" aria-label="Example of the report code you receive">
-          <div class="stub-top">
-            <span>Your report code</span>
-            <span class="stub-tag">Example</span>
-          </div>
-          <p class="stub-code">SAFE-4821</p>
-          <div class="stub-perf" aria-hidden="true"></div>
-          <figcaption class="stub-foot">
-            You get a code like this after you submit. It is the only link between you and your
-            report — no name, no email, no student number. Keep it somewhere private.
-          </figcaption>
-        </figure>
-      </div>
-    </div>
-
-    <section class="section">
-      <h2 class="section-title">How your anonymity is protected</h2>
-      <div class="facts">
-        <div class="fact">
-          <h3>Nothing identifies you</h3>
-          <p>We never ask for your name, student number, or email, and there is no account to sign in to. This prototype does not log IP addresses.</p>
-        </div>
-        <div class="fact">
-          <h3>Photo details are removed</h3>
-          <p>Screenshots and attachments are cleaned of GPS location, device model, and capture time before they are stored.</p>
-        </div>
-        <div class="fact">
-          <h3>Only your code opens the case</h3>
-          <p>Your <span class="code-chip">SAFE-XXXX</span> code is the only way to see the case status and message the committee. Whoever holds it can read it, so keep it private.</p>
-        </div>
-      </div>
-    </section>
-
-    <section class="section lookup-section">
-      <div class="lookup-copy">
-        <h2 class="section-title">Check a report you made</h2>
-        <p class="muted">Enter the code you received when you submitted. You can type just the four digits.</p>
-      </div>
-      <div class="lookup-form">
-        <div class="lookup-row">
-          <input id="wf01LookupInput" type="text" placeholder="SAFE-0000" class="input input-code" aria-label="Report code"
-            autocomplete="off" autocapitalize="characters" spellcheck="false"
-            onkeydown="if(event.key==='Enter'){lookupFrom('wf01LookupInput', document.getElementById('wf01LookupBtn'));}" />
-          <button id="wf01LookupBtn" onclick="lookupFrom('wf01LookupInput', this)" class="btn btn-primary">Open report</button>
-        </div>
-        <p class="hint">Codes can't be recovered if lost. If you no longer have yours, you can always make a new report.</p>
-      </div>
-    </section>
-
-    <aside class="defense-note">
-      <p>Defense note: entry and privacy guarantee (WF01)</p>
-      <p>This screen operationalises the anonymity principle of RA 11313 (Safe Spaces Act) and the Data Privacy Act of 2012 (RA 10173): the system collects the <em>minimum</em> necessary personal data — in fact, none. Identity is replaced by a bearer-token-style case code, so the burden of confidentiality is structural rather than merely procedural.</p>
-    </aside>
-  </section>
-
-  <!-- WF02 · STEP 1 -->
-  <section id="view-wf02" class="view hidden">
-    <div class="form-page">
-      <div class="steps" aria-label="Progress">
-        <span class="steps-text">Step 1 of 2</span>
-        <span class="steps-bar"><span style="width:50%"></span></span>
-      </div>
-      <h1 class="page-title">What happened?</h1>
-      <p class="page-lede">Start with the basics. None of these answers can identify you.</p>
-
-      <div class="panel form-stack">
-        <div class="field">
-          <label class="field-label" for="w2Category">Type of incident <span class="req" aria-hidden="true">*</span></label>
-          <select id="w2Category" class="sel" onchange="clearFlag('w2Category')">
-            <option value="">Choose one…</option>
-            <option value="Gender Microaggression / Teasing">Gender microaggression or inappropriate teasing</option>
-            <option value="Task Stereotyping (Lab/Projects)">Task stereotyping in labs or projects (e.g., kept from programming tasks)</option>
-            <option value="Verbal Harassment / Slurs">Verbal harassment or disrespectful remarks</option>
-            <option value="Exclusion from Activities">Exclusion from recitations, study groups, or activities</option>
-            <option value="Other Equity Concern">Other unfair or biased treatment</option>
-          </select>
-        </div>
-
-        <fieldset class="field">
-          <legend class="field-label">Did it seem intentional? <span class="req" aria-hidden="true">*</span></legend>
-          <p class="field-note">This isn't about blame. It tells the committee whether a workshop or a formal response is the better fit.</p>
-          <div class="pick-grid" id="intentGrid" role="radiogroup" aria-label="Perceived intent" onchange="clearFlag('intentGrid')">
-            <label class="pick">
-              <input type="radio" name="w2Intent" value="Unaware" />
-              <span class="pick-text">
-                <strong>They probably didn't realise</strong>
-                <small>It seemed unintentional, from a lack of awareness</small>
-              </span>
-            </label>
-            <label class="pick">
-              <input type="radio" name="w2Intent" value="Intentional" />
-              <span class="pick-text">
-                <strong>It seemed deliberate</strong>
-                <small>Targeted, or repeated on purpose</small>
-              </span>
-            </label>
-            <label class="pick">
-              <input type="radio" name="w2Intent" value="Unsure" />
-              <span class="pick-text">
-                <strong>I'm not sure</strong>
-                <small>Hard to tell from where I was</small>
-              </span>
-            </label>
-          </div>
-        </fieldset>
-
-        <div class="grid-2">
-          <div class="field">
-            <label class="field-label" for="w2Cohort">Your program</label>
-            <select id="w2Cohort" class="sel">
-              <option value="BSIS">BS Information Systems (BSIS)</option>
-              <option value="BSIT">BS Information Technology (BSIT)</option>
-              <option value="BSCS">BS Computer Science (BSCS)</option>
-              <option value="BSDSA">BS Data Science and Analytics (BSDSA)</option>
-              <option value="BLIS">Bachelor of Library and Information Science (BLIS)</option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="w2Location">Where did it happen?</label>
-            <select id="w2Location" class="sel">
-              <optgroup label="Classrooms">
-                <option value="Room 1">Room 1</option>
-                <option value="Room 2">Room 2</option>
-                <option value="Room 3">Room 3</option>
-                <option value="Room 4">Room 4</option>
-                <option value="Room 5">Room 5</option>
-                <option value="Room 6">Room 6</option>
-              </optgroup>
-              <optgroup label="Centrum Laboratories">
-                <option value="Centrum Lab 1">Centrum Lab 1</option>
-                <option value="Centrum Lab 2">Centrum Lab 2</option>
-                <option value="Centrum Lab 3">Centrum Lab 3</option>
-                <option value="Centrum Lab 4">Centrum Lab 4</option>
-              </optgroup>
-              <optgroup label="CSS Laboratory">
-                <option value="CSS Lab 1">CSS Lab 1</option>
-              </optgroup>
-              <optgroup label="IT Laboratories">
-                <option value="IT Lab 1">IT Lab 1</option>
-                <option value="IT Lab 2">IT Lab 2</option>
-              </optgroup>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <div class="form-actions">
-        <button onclick="gotoStep2()" class="btn btn-primary">Continue</button>
-        <button onclick="go('wf01')" class="btn btn-text">Cancel</button>
-      </div>
-
-      <aside class="defense-note">
-        <p>Defense note: perceived intent capture (WF02)</p>
-        <p>The "perceived intent" field separates <em>awareness deficits</em> from <em>hostility</em>. GAD literature distinguishes between unconscious gender bias (which is best addressed through sensitivity training and curriculum redesign) and intentional harassment (which requires disciplinary escalation). Capturing the reporter's perception lets the committee route cases correctly while feeding the Unawareness Index in WF05.</p>
-      </aside>
-    </div>
-  </section>
-
-  <!-- WF03 · STEP 2 -->
-  <section id="view-wf03" class="view hidden">
-    <div class="form-page">
-      <div class="steps" aria-label="Progress">
-        <span class="steps-text">Step 2 of 2</span>
-        <span class="steps-bar"><span style="width:100%"></span></span>
-      </div>
-      <h1 class="page-title">Describe it in your own words</h1>
-      <p class="page-lede">Share as much or as little as you're comfortable with.</p>
-
-      <div class="panel form-stack">
-        <div class="field">
-          <label class="field-label" for="w3Desc">What happened? <span class="req" aria-hidden="true">*</span></label>
-          <textarea id="w3Desc" rows="7" oninput="onDescInput(this)"
-            placeholder="What was said or done, and how it affected you."></textarea>
-          <div class="field-foot">
-            <span>Leave out your own name and student number.</span>
-            <span id="w3Count">0 characters</span>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="w3File">Screenshot or attachment <span class="optional">(optional)</span></label>
-          <p class="field-note">Location and device details are removed before the file is stored.</p>
-          <input id="w3File" type="file" class="file-input" onchange="handleFileChosen(event)" />
-          <div id="exifStatus" class="strip-ok hidden"></div>
-        </div>
-
-        <div class="note-box">
-          By submitting, you confirm this report is made in good faith. You'll get a private
-          <span class="code-chip">SAFE-XXXX</span> code on the next screen. Save it — it's the only way back into this report.
-        </div>
-      </div>
-
-      <div class="form-actions">
-        <button id="submitBtn" onclick="submitReport()" class="btn btn-primary">Submit report</button>
-        <button onclick="go('wf02')" class="btn btn-text">Back</button>
-      </div>
-
-      <aside class="defense-note">
-        <p>Defense note: metadata stripping (WF03)</p>
-        <p>EXIF data in photos can contain GPS coordinates, device serial numbers, and timestamps — all of which can de-anonymise a reporter. The prototype simulates stripping these fields before storage, demonstrating <em>privacy by design</em> as required by RA 10173 §20 (security measures for personal data).</p>
-      </aside>
-    </div>
-  </section>
-
-  <!-- WF04 · REPORT / CASE -->
-  <section id="view-wf04" class="view hidden">
-    <div id="wf04Body" class="case-page"></div>
-    <aside class="defense-note case-page">
-      <p>Defense note: two-way anonymous chat (WF04)</p>
-      <p>The chat channel preserves the reporter's anonymity while enabling a restorative, dialogue-based resolution rather than a purely punitive one. Because the case code is a bearer token, the student controls disclosure — this mirrors survivor-centred practice in gender-based violence response protocols.</p>
-    </aside>
-  </section>
-
-  <!-- WF05 · STAFF -->
-  <section id="view-wf05" class="view hidden">
-    <div id="wf05Denied" class="panel state hidden">
-      <div class="state-icon" aria-hidden="true">!</div>
-      <h2>Staff only</h2>
-      <p>The dashboard is for GAD Coordinators and the College Admin. Students can make a report and follow it under <strong>My report</strong>.</p>
-      <button onclick="go('wf01')" class="btn btn-secondary btn-xs">Back to home</button>
-    </div>
-
-    <div id="wf05Content" class="dash">
-      <div class="dash-head">
-        <div>
-          <h1 class="page-title">Staff dashboard</h1>
-          <p id="wf05RoleNote" class="page-lede"></p>
-        </div>
-        <div class="dash-actions">
-          <button onclick="refreshData(true)" class="btn btn-secondary btn-xs">Refresh</button>
-          <button id="importCsvBtn" onclick="document.getElementById('csvFileInput').click()" class="btn btn-secondary btn-xs">Import CSV</button>
-          <button id="exportCsvBtn" onclick="handleExport()" class="btn btn-primary btn-xs">Export Full Triage CSV</button>
-          <input id="csvFileInput" type="file" accept=".csv" class="hidden" onchange="onCsvFileChosen(event)" />
-        </div>
-      </div>
-
-      <div id="adminPrivacyShield" class="shield hidden">
-        <div class="shield-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-        </div>
-        <div>
-          <h3>Individual cases are hidden for this role</h3>
-          <p>The College Admin sees totals only. Case records, the case board, and the triage table are hidden so anonymous reporters can't be identified.</p>
-        </div>
-      </div>
-
-      <div class="kpi-strip" id="kpiGrid"></div>
-
-      <div class="dash-grid">
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Unawareness Index by category</h2>
-              <p class="panel-sub">Share of reports where the behavior seemed unintentional. Higher means awareness training is likely the right response.</p>
-            </div>
-            <span id="unawareSummary" class="summary-figure">0%</span>
-          </div>
-          <div id="unawareBars" class="bars"></div>
+                <button type="submit" id="submitBtn">Submit Application</button>
+            </form>
+            <div id="statusMessage" class="hidden"></div>
         </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Reports by program</h2>
-              <p class="panel-sub">Programs with fewer than 5 reports are hidden so no one can be singled out.</p>
-            </div>
-          </div>
-          <div class="tbl-wrap">
-            <table class="tbl">
-              <thead>
-                <tr>
-                  <th>Program</th><th class="num">Reports</th><th class="num">Unaware</th><th class="num">Resolved</th><th class="num">Unaware rate</th>
-                </tr>
-              </thead>
-              <tbody id="cohortTableBody"></tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-
-      <section id="wf05KanbanSection" class="panel">
-        <div class="panel-head">
-          <div>
-            <h2 class="panel-title">Case board</h2>
-            <p class="panel-sub">Move each case along as it is reviewed and resolved.</p>
-          </div>
-        </div>
-        <div class="kanban" id="kanbanBoard"></div>
-      </section>
-
-      <section id="wf05TableSection" class="panel">
-        <div class="panel-head">
-          <div>
-            <h2 class="panel-title">All cases</h2>
-            <p class="panel-sub"><span id="logCount">0</span> logged in total.</p>
-          </div>
-        </div>
-        <div class="toolbar">
-          <input id="triageSearch" type="search" class="input input-sm" placeholder="Search by code, program, category, or narrative"
-            aria-label="Search cases" autocomplete="off" oninput="setTriageFilter('q', this.value)" />
-          <select id="triageStatus" class="sel sel-filter" aria-label="Filter by status" onchange="setTriageFilter('status', this.value)">
-            <option value="">All statuses</option>
-            <option value="New">New</option>
-            <option value="In Review">In Review</option>
-            <option value="Resolved">Resolved</option>
-          </select>
-          <span id="triageShown" class="toolbar-count"></span>
-        </div>
-        <div class="tbl-wrap">
-          <table class="tbl tbl-cases">
-            <thead>
-              <tr>
-                <th>Code</th><th>Filed</th><th>Program</th><th>Category</th>
-                <th>Intent</th><th>Status</th><th class="num">Messages</th><th><span class="sr-only">Open</span></th>
-              </tr>
-            </thead>
-            <tbody id="triageTableBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <aside class="defense-note">
-        <p>Defense note: statistical disclosure control (WF05)</p>
-        <p>Small-cell suppression (the <span class="mono">&lt; 5</span> rule) is a standard statistical disclosure control technique: reporting counts of 1–4 in a small cohort makes individual reporters trivially re-identifiable by process of elimination. Combined with role-based aggregation for the College Admin, this implements the <em>purpose limitation</em> and <em>data minimisation</em> principles of RA 10173.</p>
-      </aside>
     </div>
-  </section>
-
-</main>
-
-<footer class="footer">
-  <div class="footer-inner">
-    <details class="policy">
-      <summary>Your rights under the Safe Spaces Act (RA 11313)</summary>
-      <div class="policy-body">
-        <p>Under Republic Act No. 11313 (Safe Spaces Act) and institutional GAD policies, all students are entitled to a classroom and laboratory free of gender-based sexual harassment, derogatory remarks, and systemic exclusion.</p>
-        <p>The CCSICT GAD Committee uses logged reports to identify recurring biases in laboratory groupings, facilitate faculty sensitivity workshops, and ensure non-punitive, restorative resolutions.</p>
-      </div>
-    </details>
-    <p class="footer-meta">SafeTrack is a prototype by the CCSICT Gender and Development Office. If you are in immediate danger, contact campus security or call 911.</p>
-  </div>
-</footer>
-
-<!-- STAFF ACCESS MODAL -->
-<div id="authModal" class="modal hidden">
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" aria-describedby="authModalSubtitle">
-    <div>
-      <h3 class="modal-title" id="authModalTitle">Staff sign-in</h3>
-      <p id="authModalSubtitle" class="modal-sub">Enter the password to continue.</p>
-    </div>
-    <input id="authPasswordInput" type="password" autocomplete="off" placeholder="Password" aria-label="Password"
-      class="input"
-      onkeydown="if(event.key==='Enter'){submitPassword();} if(event.key==='Escape'){cancelPassword();}" />
-    <p id="authError" class="modal-error hidden" role="alert"></p>
-    <div class="modal-actions">
-      <button onclick="cancelPassword()" class="btn btn-text">Cancel</button>
-      <button onclick="submitPassword()" class="btn btn-primary">Sign in</button>
-    </div>
-  </div>
-</div>
-
-<script src="app.js" defer></script>
+    <script src="script.js"></script>
 </body>
 </html>
