@@ -49,10 +49,16 @@ document.getElementById('applicationForm').addEventListener('submit', function(e
         },
         body: JSON.stringify(payload)
     })
-    .then((response) => response.json())
+    .then((response) => {
+        // Treat any non-2xx reply as a failure instead of reporting success
+        if (!response.ok) {
+            throw new Error('Server replied with status ' + response.status);
+        }
+        return response.json();
+    })
     .then((data) => {
         // Handle success
-        statusMessage.textContent = 'Application submitted successfully! Your ID is hidden from reviewers.';
+        statusMessage.textContent = 'Application submitted successfully! Your application ID is ' + payload.data[0].id + '.';
         statusMessage.className = 'success';
         statusMessage.classList.remove('hidden');
         document.getElementById('applicationForm').reset();

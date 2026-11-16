@@ -54,7 +54,7 @@ input[type="text"], select {
 button {
     width: 100%;
     padding: 1rem;
-    background-color: #27ae60;
+    background-color: #1e8449;
     color: white;
     border: none;
     border-radius: 4px;
@@ -65,7 +65,7 @@ button {
 }
 
 button:hover {
-    background-color: #219150;
+    background-color: #196f3d;
 }
 
 button:disabled {
