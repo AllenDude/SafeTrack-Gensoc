@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenTech Applications</title>
+<!--
+  Put this file next to index.html, app.js and style.css from SafeTrack-Gensoc-main.
+  It reads the same SheetDB sheet app.js writes to (columns: id, student_id, event_name,
+  target_role, skills, status). Use another sheet with: analysis.html?api=https://sheetdb.io/api/v1/XXXX
+-->
+<style>
+  :root { --bg:#070b14; --panel:#0d1424; --panel2:#111b30; --ink:#e6f1ff; --text:#c3d2e8; --muted:#7b8fae; --line:#1c2a45; --neon:#00e5a0; --cyan:#22d3ee; --amber:#fbbf24; --violet:#a78bfa; }
+  * { box-sizing:border-box; margin:0; padding:0; font-family:Consolas,'Courier New',monospace; }
+  body { background:var(--bg); color:var(--text); padding:20px 14px 48px; min-height:100vh;
+    background-image:linear-gradient(rgba(34,211,238,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.045) 1px,transparent 1px);
+    background-size:28px 28px; }
+  .wrap { max-width:560px; margin:0 auto; }
+  header { text-align:center; margin-bottom:18px; }
+  header h1 { font-size:20px; color:var(--ink); letter-spacing:.04em; text-transform:uppercase; }
+  header h1 span { color:var(--neon); text-shadow:0 0 12px rgba(0,229,160,.7); }
+  header p { font-size:12.5px; color:var(--muted); margin-top:5px; }
+  header p::before { content:''; display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--neon); box-shadow:0 0 8px var(--neon); margin-right:7px; animation:blink 1.6s infinite; }
+  @keyframes blink { 50% { opacity:.35; } }
+  .step { background:linear-gradient(180deg,var(--panel2),var(--panel)); border:1px solid var(--line); border-radius:10px; padding:20px 18px 18px; margin-bottom:14px; position:relative; box-shadow:0 0 0 1px rgba(34,211,238,.05),0 8px 30px rgba(0,0,0,.45); animation:in .25s ease; }
+  .step::before, .step::after { content:''; position:absolute; width:14px; height:14px; border:2px solid var(--cyan); opacity:.8; }
+  .step::before { top:-1px; left:-1px; border-right:0; border-bottom:0; border-top-left-radius:10px; }
+  .step::after { bottom:-1px; right:-1px; border-left:0; border-top:0; border-bottom-right-radius:10px; }
+  @keyframes in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+  .step h2 { font-size:15px; color:var(--ink); text-align:center; }
+  .step h2::before { content:'> '; color:var(--neon); }
+  .step .sub { font-size:12px; color:var(--muted); text-align:center; margin:3px 0 8px; }
+  .chart { display:flex; justify-content:center; margin:6px 0 14px; filter:drop-shadow(0 0 14px rgba(34,211,238,.18)); }
+  svg.donut path { cursor:pointer; transition:opacity .15s, transform .15s; transform-origin:110px 110px; }
+  svg.donut.has path { opacity:.3; }
+  svg.donut.has path.sel { opacity:1; transform:scale(1.045); filter:drop-shadow(0 0 6px currentColor); }
+  svg.donut .c1 { font-size:36px; font-weight:700; fill:var(--ink); }
+  svg.donut .c2 { font-size:11px; fill:var(--muted); letter-spacing:.08em; text-transform:uppercase; }
+  .btns { display:grid; gap:8px; }
+  .opt { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:rgba(34,211,238,.04); border:1px solid #27395e; border-radius:6px; padding:13px 14px; font-size:14.5px; font-weight:700; color:var(--ink); cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s; }
+  .opt:hover { background:rgba(34,211,238,.1); border-color:var(--cyan); }
+  .opt:focus-visible { outline:2px solid var(--cyan); outline-offset:2px; }
+  .opt .sw { width:12px; height:12px; border-radius:3px; flex:none; box-shadow:0 0 8px currentColor; }
+  .opt .num { margin-left:auto; font-variant-numeric:tabular-nums; white-space:nowrap; color:var(--neon); }
+  .opt .num small { font-weight:400; color:var(--muted); margin-left:6px; }
+  .opt.on { border-color:var(--neon); background:rgba(0,229,160,.1); box-shadow:0 0 14px rgba(0,229,160,.25), inset 0 0 0 1px rgba(0,229,160,.3); }
+  .opt:disabled { opacity:.35; cursor:not-allowed; background:transparent; border-style:dashed; }
+  .opt:disabled .num { color:var(--muted); }
+  .ids { list-style:none; margin-top:12px; }
+  .ids li { border-top:1px dashed var(--line); padding:11px 2px; display:flex; flex-wrap:wrap; gap:3px 12px; align-items:baseline; }
+  .ids li:first-child { border-top:0; }
+  .ids .sid { font-size:18px; font-weight:700; color:var(--neon); text-shadow:0 0 10px rgba(0,229,160,.35); }
+  .ids .meta { font-size:12px; color:var(--muted); }
+  .ids .sk { width:100%; font-size:13px; color:var(--text); }
+  .ids .sk::before { content:'$ skills: '; color:var(--cyan); }
+  .tag { display:inline-block; border:1px solid #2a3c61; border-radius:4px; padding:1px 7px; font-size:11px; color:var(--cyan); }
+  .tag.warn { border-color:var(--amber); color:var(--amber); }
+  .crumb { font-size:12px; color:var(--muted); text-align:center; margin-bottom:6px; }
+  .crumb b { color:var(--cyan); font-weight:400; }
+  .msg { border-radius:6px; padding:12px 14px; font-size:13px; margin-bottom:14px; }
+  .msg.err { background:rgba(248,113,113,.1); color:#fca5a5; border:1px solid rgba(248,113,113,.45); }
+  .msg.info { background:rgba(251,191,36,.08); color:var(--amber); border:1px solid rgba(251,191,36,.4); }
+  .empty { text-align:center; color:var(--muted); padding:26px 8px; font-size:13px; }
+  footer { display:flex; flex-wrap:wrap; justify-content:center; gap:6px 16px; margin-top:18px; }
+  footer button, footer label { background:none; border:0; color:var(--cyan); font-size:12.5px; cursor:pointer; }
+  footer button:hover, footer label:hover { color:var(--neon); text-decoration:underline; }
+  footer button::before, footer label::before { content:'['; color:var(--muted); margin-right:3px; }
+  footer button::after, footer label::after { content:']'; color:var(--muted); margin-left:3px; }
+  input[type=file] { display:none; }
+  a.back { display:block; text-align:center; font-size:12px; color:var(--muted); margin-top:12px; text-decoration:none; }
+  a.back:hover { color:var(--cyan); }
+  @media (prefers-reduced-motion:reduce) { * { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>OpenTech <span>//</span> Applications</h1>
+    <p id="status">Loading…</p>
+  </header>
+  <div id="msg"></div>
+  <div id="app"></div>
+  <footer>
+    <button id="reload" type="button">Refresh</button>
+    <label for="file" tabindex="0" id="filebtn">Open JSON / CSV</label>
+    <input type="file" id="file" accept=".json,.csv,text/csv,application/json">
+    <button id="sample" type="button">Sample data</button>
+  </footer>
+  <a class="back" href="index.html">← Back to application form</a>
+</div>
+
+<script>
+/* Same SheetDB endpoint as app.js */
+var API = new URLSearchParams(location.search).get('api') || 'https://sheetdb.io/api/v1/s8jmt1jiwzzka';
+/* Same dropdown options as index.html */
+var EVENTS = ['Annual CCSICT Hackathon', 'Java Coding Competition', 'Web Development Challenge'];
+var ROLES = ['Lead Programmer', 'Database Architect', 'UI/UX Designer', 'Documentation / QA'];
+var COLORS = ['#00e5a0', '#22d3ee', '#fbbf24', '#a78bfa', '#f472b6', '#94a3b8'];
+
+var S = { rows: [], ev: null, ro: null };
+
+function $(id) { return document.getElementById(id); }
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+}
+function pct(n, t) { return t ? Math.round(100 * n / t) + '%' : '0%'; }
+function banner(kind, t) { $('msg').innerHTML = t ? '<div class="msg ' + kind + '">' + t + '</div>' : ''; }
+function fmt(ms) { return ms ? new Date(ms).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; }
+
+/* SheetDB returns every cell as text under the sheet's header names. Accept small spelling differences. */
+function norm(r) {
+  var k = {};
+  Object.keys(r || {}).forEach(function (key) { k[key.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')] = r[key]; });
+  function pick() { for (var i = 0; i < arguments.length; i++) { var v = k[arguments[i]]; if (v != null && String(v).trim() !== '') return String(v).trim(); } return ''; }
+  var o = { id: pick('id', 'application_id'), student_id: pick('student_id', 'studentid', 'student_id_number'),
+    event_name: pick('event_name', 'event', 'technical_event'), target_role: pick('target_role', 'role'),
+    skills: pick('skills', 'technical_skills'), status: pick('status') || 'Pending Review' };
+  var m = /(\d{10,})/.exec(o.id); o.when = m ? Number(m[1]) : 0;
+  return o;
+}
+function clean(a) { return (a || []).map(norm).filter(function (r) { return r.student_id || r.event_name || r.target_role; }); }
+
+function count(rows, key, order) {
+  var m = {}; rows.forEach(function (r) { var v = r[key] || '(blank)'; m[v] = (m[v] || 0) + 1; });
+  var labels = order.slice(); Object.keys(m).forEach(function (l) { if (labels.indexOf(l) < 0) labels.push(l); });
+  return labels.map(function (l, i) { return { label: l, n: m[l] || 0, color: COLORS[i % COLORS.length] }; });
+}
+
+/* ---- donut ---- */
+function donut(items, total, selLabel, kind) {
+  var cx = 110, cy = 110, R = 100, r = 62, a = -Math.PI / 2, out = '';
+  var live = items.filter(function (i) { return i.n > 0; });
+  function P(rad, t) { return (cx + rad * Math.cos(t)).toFixed(2) + ' ' + (cy + rad * Math.sin(t)).toFixed(2); }
+  live.forEach(function (it) {
+    var cls = it.label === selLabel ? ' class="sel"' : '', tip = '<title>' + esc(it.label) + ': ' + it.n + '</title>', d;
+    if (live.length === 1) {
+      d = 'M' + (cx - R) + ' ' + cy + 'a' + R + ' ' + R + ' 0 1 0 ' + 2 * R + ' 0a' + R + ' ' + R + ' 0 1 0 ' + (-2 * R) + ' 0ZM' + (cx - r) + ' ' + cy + 'a' + r + ' ' + r + ' 0 1 1 ' + 2 * r + ' 0a' + r + ' ' + r + ' 0 1 1 ' + (-2 * r) + ' 0Z';
+      out += '<path data-k="' + kind + '" data-l="' + esc(it.label) + '"' + cls + ' style="color:' + it.color + '" fill-rule="evenodd" fill="' + it.color + '" d="' + d + '">' + tip + '</path>';
+      return;
+    }
+    var ang = 2 * Math.PI * it.n / total, b = a + ang, big = ang > Math.PI ? 1 : 0;
+    d = 'M' + P(R, a) + ' A' + R + ' ' + R + ' 0 ' + big + ' 1 ' + P(R, b) + ' L' + P(r, b) + ' A' + r + ' ' + r + ' 0 ' + big + ' 0 ' + P(r, a) + ' Z';
+    out += '<path data-k="' + kind + '" data-l="' + esc(it.label) + '"' + cls + ' fill="' + it.color + '" stroke="#0d1424" stroke-width="2" d="' + d + '">' + tip + '</path>';
+    a = b;
+  });
+  return '<svg class="donut' + (selLabel ? ' has' : '') + '" width="220" height="220" viewBox="0 0 220 220" role="img" aria-label="Pie chart of ' + total + ' applications">' + out +
+    '<text class="c1" x="110" y="115" text-anchor="middle">' + total + '</text>' +
+    '<text class="c2" x="110" y="134" text-anchor="middle">' + (total === 1 ? 'application' : 'applications') + '</text></svg>';
+}
+function buttons(items, total, selLabel, kind) {
+  return '<div class="btns">' + items.map(function (it) {
+    return '<button type="button" class="opt' + (it.label === selLabel ? ' on' : '') + '" data-k="' + kind + '" data-l="' + esc(it.label) + '"' + (it.n ? '' : ' disabled') + '>' +
+      '<span class="sw" style="background:' + it.color + ';color:' + it.color + '"></span>' + esc(it.label) +
+      '<span class="num">' + it.n + '<small>' + pct(it.n, total) + '</small></span></button>';
+  }).join('') + '</div>';
+}
+
+/* ---- screen ---- */
+function render() {
+  var rows = S.rows, app = $('app');
+  if (!rows.length) { app.innerHTML = '<div class="step"><p class="empty">No applications yet. Once students submit the form, they will show up here.</p></div>'; return; }
+
+  var evs = count(rows, 'event_name', EVENTS), html = '';
+  html += '<div class="step"><h2>Where did students apply?</h2><p class="sub">Tap an event</p><div class="chart">' + donut(evs, rows.length, S.ev, 'ev') + '</div>' + buttons(evs, rows.length, S.ev, 'ev') + '</div>';
+
+  if (S.ev) {
+    var evRows = rows.filter(function (r) { return r.event_name === S.ev; });
+    var ros = count(evRows, 'target_role', ROLES);
+    html += '<div class="step"><p class="crumb"><b>' + esc(S.ev) + '</b></p><h2>Which roles did they apply for?</h2><p class="sub">Tap a role</p><div class="chart">' +
+      donut(ros, evRows.length, S.ro, 'ro') + '</div>' + buttons(ros, evRows.length, S.ro, 'ro') + '</div>';
+
+    if (S.ro) {
+      var list = evRows.filter(function (r) { return r.target_role === S.ro; }).sort(function (a, b) { return b.when - a.when; });
+      html += '<div class="step" id="idsbox"><p class="crumb"><b>' + esc(S.ev) + '</b> · <b>' + esc(S.ro) + '</b></p><h2>' + list.length + (list.length === 1 ? ' student' : ' students') + '</h2>' +
+        '<p class="sub">Student IDs who applied</p><ul class="ids">' + list.map(function (r) {
+          var dup = list.filter(function (x) { return x.student_id === r.student_id; }).length > 1;
+          return '<li><span class="sid">' + esc(r.student_id || '(no ID)') + '</span><span class="meta">' + esc(fmt(r.when)) + '</span>' +
+            '<span class="tag' + (r.status === 'Pending Review' ? '' : '') + '">' + esc(r.status) + '</span>' + (dup ? '<span class="tag warn">applied twice</span>' : '') +
+            (r.skills ? '<span class="sk">' + esc(r.skills) + '</span>' : '') + '</li>';
+        }).join('') + '</ul></div>';
+    }
+  }
+  app.innerHTML = html;
+  app.querySelectorAll('[data-k]').forEach(function (el) {
+    el.addEventListener('click', function () { pick(el.getAttribute('data-k'), el.getAttribute('data-l')); });
+  });
+}
+function pick(kind, label) {
+  var scroll;
+  if (kind === 'ev') { S.ev = S.ev === label ? null : label; S.ro = null; scroll = S.ev ? 1 : 0; }
+  else { S.ro = S.ro === label ? null : label; scroll = S.ro ? 2 : 1; }
+  render();
+  var steps = document.querySelectorAll('.step');
+  if (steps[scroll]) steps[scroll].scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ---- data ---- */
+function show(rows, msg) {
+  S.rows = clean(rows); S.ev = null; S.ro = null; render(); $('status').textContent = msg;
+}
+function loadLive() {
+  $('status').textContent = 'Loading…'; banner('', '');
+  fetch(API, { headers: { 'Accept': 'application/json' } })
+    .then(function (r) { if (!r.ok) throw new Error('server replied ' + r.status); return r.json(); })
+    .then(function (d) {
+      if (!Array.isArray(d)) throw new Error('unexpected reply from SheetDB');
+      show(d, 'Live data · ' + new Date().toLocaleTimeString());
+    })
+    .catch(function (e) {
+      $('app').innerHTML = ''; $('status').textContent = 'Not loaded';
+      banner('err', '<b>Could not load live data</b> (' + esc(e.message) + '). Try Refresh, or use Open JSON / CSV or Sample data below.');
+    });
+}
+function parseCsv(t) {
+  var rows = [], row = [], cell = '', q = false;
+  for (var i = 0; i < t.length; i++) {
+    var c = t[i];
+    if (q) { if (c === '"' && t[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; }
+    else if (c === '"') q = true; else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && t[i + 1] === '\n') i++; row.push(cell); cell = ''; rows.push(row); row = []; }
+    else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  rows = rows.filter(function (r) { return r.some(function (x) { return x.trim(); }); });
+  if (!rows.length) return [];
+  var h = rows[0].map(function (x) { return x.trim(); });
+  return rows.slice(1).map(function (r) { var o = {}; h.forEach(function (k, i) { o[k] = (r[i] || '').trim(); }); return o; });
+}
+function sample() {
+  var base = Date.now() - 6 * 864e5;
+  var d = [['26-1001', 0, 0, 'Java, Python'], ['26-1002', 0, 1, 'SQL, MySQL'], ['25-2210', 0, 2, 'Figma, HTML/CSS'], ['24-3310', 1, 0, 'Java, C++'],
+    ['25-2211', 1, 0, 'Java'], ['26-1003', 1, 3, 'Writing, Testing'], ['26-1004', 2, 2, 'HTML/CSS, JavaScript, Figma'], ['25-2212', 2, 0, 'JavaScript, React'],
+    ['24-3311', 2, 1, 'SQL, PHP'], ['26-1005', 2, 2, 'Figma, HTML/CSS'], ['26-1001', 1, 0, 'Java, Python']];
+  return d.map(function (x, i) { return { id: 'APP-' + (base + i * 3e7), student_id: x[0], event_name: EVENTS[x[1]], target_role: ROLES[x[2]], skills: x[3], status: 'Pending Review' }; });
+}
+
+$('reload').addEventListener('click', loadLive);
+$('sample').addEventListener('click', function () { banner('info', 'Showing <b>made-up sample data</b> (sample IDs, not real students).'); show(sample(), 'Sample data'); });
+$('filebtn').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } });
+$('file').addEventListener('change', function (e) {
+  var f = e.target.files[0]; if (!f) return;
+  var rd = new FileReader();
+  rd.onload = function () {
+    try {
+      var rows = /\.csv$/i.test(f.name) ? parseCsv(String(rd.result)) : JSON.parse(String(rd.result));
+      if (!Array.isArray(rows)) throw new Error('expected a list of rows');
+      banner('', ''); show(rows, 'Loaded ' + f.name);
+    } catch (err) { banner('err', 'Could not read that file: ' + esc(err.message)); }
+  };
+  rd.readAsText(f); e.target.value = '';
+});
+loadLive();
+</script>
+</body>
+</html>
